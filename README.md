@@ -1,22 +1,40 @@
-# INVENTORY MANAGEMENT API
+# Pteros — Business Management API Multi‑Tool
 
-### Stack
+Pteros is a modular API designed to manage any type of business entity (“pteros”).  
+A ptero can be a store, manufacturer, organization, workspace, or any structure that needs a unified management layer.
 
-        Express - api framework
-        SQL - db
-        ORM - drizzle
+The goal is simple: provide a clean, scalable backend foundation for user management, inventory, operations, and internal tooling.
 
-#### ENV FILE CONTAINS
+## Core Concepts
 
-    DATABASE_URL=""
+### Pteros
+A “ptero” represents a business unit.  
+Each ptero can have:
+- users
+- roles
+- inventory
+- operations
+- custom modules
 
-### Info:
+The system is flexible enough to support different business models without rewriting the backend.
 
-     More information about certain folders / files are inside of their folders
-     More: Functional / logic info can be found on the file comments
+### API‑First
+Pteros exposes a consistent API for:
+- authentication & user management  
+- role & permission control  
+- inventory management  
+- business operations  
+- custom extensions
 
-#### LOCAL RUN
+## Tech Stack
+- **Bun** — runtime  
+- **Hono** — API framework  
+- **Drizzle ORM** — schema & migrations  
+- **PostgreSQL** — database  
 
-    cd api
-    npm install
-    npm run dev
+## Status
+Early development.  
+Schema, migrations, and core API structure are being defined.
+
+## License
+MIT
