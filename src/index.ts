@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler, describeRoute } from "hono-openapi";
+import { healthRoutes } from "./modules/health/health.routes";
 
 const app = new Hono();
+
+app.route("/v1", healthRoutes)
 
 app.get(
   "/",
@@ -24,7 +27,7 @@ app.get(
     },
   }),
   (c) => {
-    return c.text("bloop hono template!");
+    return c.text("Ptero Project");
   },
 );
 
@@ -33,9 +36,9 @@ app.get(
   openAPIRouteHandler(app, {
     documentation: {
       info: {
-        title: "Hono bun template API from bloop",
+        title: "Ptero Project API",
         version: "1.0.0",
-        description: "Hono bun template",
+        description: "For more Information check: https://github.com/Diogo-Falardo/Pteros-Business-Management-API-Multi-Tool",
       },
       servers: [{ url: "http://localhost:3000", description: "Local Server" }],
     },
