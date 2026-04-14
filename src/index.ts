@@ -4,12 +4,15 @@ import { openAPIRouteHandler, describeRoute } from "hono-openapi";
 import { healthRoutes } from "./modules/health/health.routes";
 import { userRoutes } from "./modules/users/user.route";
 import { HTTPException } from "hono/http-exception";
-import { InstanceofExpression } from "typescript";
+import { pteroRoutes } from "./modules/pteros/ptero.route";
+import { adminRoutes } from "./core/admin/global.route";
 
 const app = new Hono();
 
 app.route("/v1", healthRoutes);
+app.route("/", adminRoutes);
 app.route("/", userRoutes);
+app.route("/", pteroRoutes);
 
 app.get(
   "/",
