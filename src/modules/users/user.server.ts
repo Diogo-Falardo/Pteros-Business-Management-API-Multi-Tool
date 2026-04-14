@@ -3,8 +3,40 @@ import { db } from "../../db/db.index";
 import { usersTable } from "../../db/schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import { eq } from "drizzle-orm";
+import { type_UserSchema } from "./user.schema";
 
-export class UserServer {
+export class userServer {
+  /**
+   * Retuns an User by its UserId
+   *
+   * false : means user was not found
+   *
+   * @param userId
+   * @returns user schema || boolean
+   */
+  async getUserByUserId(userId: string): Promise<type_UserSchema | false> {
+    try {
+      const user = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (user[0]) {
+        console.log(user);
+      }
+
+      if (!user[0]) return false;
+
+      return user[0];
+    } catch (err: any) {
+      console.error(`Error Getting User By User Id: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error loading user!",
+      });
+    }
+  }
+
   /**
    * Validates if there is already an user in db
    *

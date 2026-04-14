@@ -1,9 +1,9 @@
 import { HTTPException } from "hono/http-exception";
 import { type_CREATE_UserSchema } from "./user.schema";
-import { UserServer } from "./user.server";
+import { userServer } from "./user.server";
 import { HttpStatus } from "../../core/utils/statusCode";
 
-const UserService = new UserServer();
+const UserService = new userServer();
 
 // create an user
 // validate if the user already exists on db
