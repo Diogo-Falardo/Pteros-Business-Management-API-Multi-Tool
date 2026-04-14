@@ -22,10 +22,6 @@ export class userServer {
         .where(eq(usersTable.id, userId))
         .limit(1);
 
-      if (user[0]) {
-        console.log(user);
-      }
-
       if (!user[0]) return false;
 
       return user[0];

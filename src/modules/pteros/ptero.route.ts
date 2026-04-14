@@ -3,11 +3,9 @@ import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
 import { CREATE_PteroSchema } from "./ptero.schema";
 import { validateUUID } from "../../core/middlewares/validators";
-import { pteroServer } from "./ptero.server";
+import { createPtero, deletePtero } from "./ptero.controller";
 
 export const pteroRoutes = new Hono().basePath("/ptero");
-
-const pteroService = new pteroServer();
 
 pteroRoutes.post(
   "create/:userId",
@@ -46,12 +44,34 @@ pteroRoutes.post(
     const validatedUserId = validateUUID(userId);
     const ptero = c.req.valid("json");
 
-    const createdPtero = await pteroService.createPtero(
-      validatedUserId,
-      ptero.name,
-    );
+    const createdPtero = await createPtero(userId, ptero);
     return c.json({
       ptero_created: createdPtero,
     });
+  },
+);
+
+pteroRoutes.delete(
+  "delete/:userId/:pteroId",
+  describeRoute({
+    summary: "Delete a ptero",
+    description: `
+  Deleting a ptero will delete everything with it
+
+  To delete a ptero is required the Owner Role
+
+  required: UserId, PteroId("Owner" -> role), 
+  
+  `,
+    tags: ["Pteros"],
+  }),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    await deletePtero(validatedUserId, validatedPteroId);
+
+    return c.json({ ptero_deleted: validatedPteroId });
   },
 );

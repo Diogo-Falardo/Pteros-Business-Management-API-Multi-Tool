@@ -14,3 +14,20 @@ export const CREATE_PteroSchema = pteroSchema.pick({
 });
 
 export type type_CREATE_PteroSchema = z.infer<typeof CREATE_PteroSchema>;
+
+export const pteroStaffSchema = z.object({
+  id: z.uuid(),
+  pteroId: z.uuid(),
+  userId: z.uuid(),
+  roleId: z.uuid(),
+});
+
+export const pteroStaffInfoSchema = pteroStaffSchema
+  .pick({
+    roleId: true,
+  })
+  .extend({
+    role: z.string(),
+  });
+
+export type type_PteroStaffInfoSchema = z.infer<typeof pteroStaffInfoSchema>;
