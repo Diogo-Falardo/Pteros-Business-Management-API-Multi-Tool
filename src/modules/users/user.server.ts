@@ -3,7 +3,7 @@ import { db } from "../../db/db.index";
 import { usersTable } from "../../db/schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import { eq } from "drizzle-orm";
-import { deleteUser } from "./user.controller";
+
 export class UserServer {
   /**
    * Validates if there is already an user in db

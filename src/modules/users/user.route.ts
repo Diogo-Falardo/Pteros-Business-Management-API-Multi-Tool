@@ -4,9 +4,6 @@ import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
 import { CREATE_UserSchema } from "./user.schema";
 import { createUser, deleteUser } from "./user.controller";
-import { sv } from "zod/v4/locales";
-import { HTTPException } from "hono/http-exception";
-import { HttpStatus } from "../../core/utils/statusCode";
 import { validateUUID } from "../../core/middlewares/validators";
 
 export const userRoutes = new Hono().basePath("/user");
@@ -42,7 +39,6 @@ userRoutes.post(
   sValidator("json", CREATE_UserSchema),
   async (c) => {
     const user = c.req.valid("json");
-    console.log(user);
     const result = await createUser(user);
     return c.json(result, 201);
   },
