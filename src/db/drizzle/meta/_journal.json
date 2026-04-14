@@ -15,6 +15,13 @@
       "when": 1776169613483,
       "tag": "0001_dazzling_lorna_dane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776182226981,
+      "tag": "0002_damp_champions",
+      "breakpoints": true
     }
   ]
 }

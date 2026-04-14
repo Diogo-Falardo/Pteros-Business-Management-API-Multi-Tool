@@ -18,7 +18,7 @@ export const pterosStaffTable = pgTable("pteros_Staff", {
   id: uuid().defaultRandom().primaryKey(),
   pteroId: uuid("ptero_id")
     .notNull()
-    .references(() => pterosTable.id),
+    .references(() => pterosTable.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -31,7 +31,7 @@ export const pterosRolesTable = pgTable("pteros_Roles", {
   id: uuid().defaultRandom().primaryKey(),
   pteroId: uuid("ptero_id")
     .notNull()
-    .references(() => pterosTable.id),
+    .references(() => pterosTable.id, { onDelete: "cascade" }),
   role: varchar({ length: 255 }).notNull(),
 });
 
@@ -39,7 +39,7 @@ export const pterosRolesPermissionsTable = pgTable("pteros_Roles_Permissions", {
   id: uuid().defaultRandom().primaryKey(),
   roleId: uuid("role_id")
     .notNull()
-    .references(() => pterosRolesTable.id),
+    .references(() => pterosRolesTable.id, { onDelete: "cascade" }),
   permissonId: uuid("permission_id")
     .notNull()
     .references(() => permissionsTable.id),
