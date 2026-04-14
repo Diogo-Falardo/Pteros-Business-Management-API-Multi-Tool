@@ -17,7 +17,7 @@ adminRoutes.get(
     tags: ["Admin"],
   }),
   async (c) => {
-    const permissionsList = permissionsService.list();
+    const permissionsList = await permissionsService.list();
 
     return c.json(permissionsList);
   },

@@ -3,14 +3,15 @@ import { HttpStatus } from "../utils/statusCode";
 import { db } from "../../db/db.index";
 import { permissionsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
+import { permissionSchema, type_PermissionSchema } from "./global.schema";
 
 // get the list of permissions setted globally (by: ptero app devs)
 export class permissionsServer {
-  async list() {
+  async list(): Promise<Array<type_PermissionSchema>> {
     try {
       const permissions = await db.select().from(permissionsTable);
 
-      return permissions;
+      return permissionSchema.array().parse(permissions);
     } catch (err: any) {
       console.error(`Error listing permissions: ${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {

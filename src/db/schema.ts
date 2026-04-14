@@ -8,13 +8,13 @@ export const usersTable = pgTable("users", {
 
 export const pterosTable = pgTable("pteros", {
   id: uuid().defaultRandom().primaryKey(),
-  userdId: uuid("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => usersTable.id),
   name: varchar({ length: 255 }).notNull(),
 });
 
-export const pterosStaff = pgTable("pteros_Staff", {
+export const pterosStaffTable = pgTable("pteros_Staff", {
   id: uuid().defaultRandom().primaryKey(),
   pteroId: uuid("ptero_id")
     .notNull()
@@ -24,10 +24,10 @@ export const pterosStaff = pgTable("pteros_Staff", {
     .references(() => usersTable.id),
   roleId: uuid("role_id")
     .notNull()
-    .references(() => pterosRoles.id),
+    .references(() => pterosRolesTable.id),
 });
 
-export const pterosRoles = pgTable("pteros_Roles", {
+export const pterosRolesTable = pgTable("pteros_Roles", {
   id: uuid().defaultRandom().primaryKey(),
   pteroId: uuid("ptero_id")
     .notNull()
@@ -35,11 +35,11 @@ export const pterosRoles = pgTable("pteros_Roles", {
   role: varchar({ length: 255 }).notNull(),
 });
 
-export const pterosRolesPermissions = pgTable("pteros_Roles_Permissions", {
+export const pterosRolesPermissionsTable = pgTable("pteros_Roles_Permissions", {
   id: uuid().defaultRandom().primaryKey(),
   roleId: uuid("role_id")
     .notNull()
-    .references(() => pterosRoles.id),
+    .references(() => pterosRolesTable.id),
   permissonId: uuid("permission_id")
     .notNull()
     .references(() => permissionsTable.id),
