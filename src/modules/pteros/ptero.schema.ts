@@ -9,6 +9,8 @@ export const pteroSchema = z.object({
     .max(255, { message: "Ptero name has a max of 255 characters" }),
 });
 
+export type type_PteroSchema = z.infer<typeof pteroSchema>;
+
 export const CREATE_PteroSchema = pteroSchema.pick({
   name: true,
 });
@@ -31,3 +33,12 @@ export const pteroStaffInfoSchema = pteroStaffSchema
   });
 
 export type type_PteroStaffInfoSchema = z.infer<typeof pteroStaffInfoSchema>;
+
+export const PATCH_PteroSchema = pteroSchema
+  .pick({
+    userId: true,
+    name: true,
+  })
+  .partial();
+
+export type type_PATCH_PteroSchema = z.infer<typeof PATCH_PteroSchema>;

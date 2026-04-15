@@ -10,7 +10,10 @@ import {
 import { permissionsServer } from "../../core/admin/global.server";
 import { and, eq } from "drizzle-orm";
 import {
+  pteroSchema,
   pteroStaffInfoSchema,
+  type_PATCH_PteroSchema,
+  type_PteroSchema,
   type_PteroStaffInfoSchema,
 } from "./ptero.schema";
 
@@ -68,6 +71,91 @@ export class pteroServer {
       console.error(`Error Deleting Ptero: ${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: "Error deleting ptero!",
+      });
+    }
+  }
+
+  /**
+   * Update a ptero
+   *
+   * Update only if values have changed
+   *
+   * @param pteroId
+   * @param pteroPatchSchema
+   */
+  async updatePtero(
+    pteroId: string,
+    pteroPatchSchema: type_PATCH_PteroSchema,
+  ): Promise<type_PteroSchema | object> {
+    const currentPteroInfo = await this.getPteroById(pteroId);
+    console.log("currentPteroInfo " + currentPteroInfo);
+    if (!currentPteroInfo)
+      throw new HTTPException(HttpStatus.NOT_FOUND, {
+        message: "Ptero was not found!",
+      });
+
+    let updatePtero: type_PATCH_PteroSchema = {};
+
+    if (
+      pteroPatchSchema.name &&
+      currentPteroInfo.name !== pteroPatchSchema.name
+    ) {
+      updatePtero.name = pteroPatchSchema.name;
+    }
+
+    if (
+      pteroPatchSchema.userId &&
+      currentPteroInfo.userId !== pteroPatchSchema.userId
+    ) {
+      updatePtero.userId = pteroPatchSchema.userId;
+    }
+
+    if (Object.keys(updatePtero).length === 0) {
+      return {
+        message: "No changes detected. Ptero remains unchanged.",
+        ptero: currentPteroInfo,
+        updated: false,
+      };
+    }
+
+    try {
+      const updatedPtero = await db
+        .update(pterosTable)
+        .set(updatePtero)
+        .where(eq(pterosTable.id, pteroId))
+        .returning();
+
+      return pteroSchema.parse(updatedPtero[0]);
+    } catch (err: any) {
+      console.error(`Error Updating Ptero: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error update ptero!",
+      });
+    }
+  }
+  /**
+   * Looks for a ptero by its id
+   *
+   * If returned false means no ptero was found
+   *
+   * @param pteroId
+   * @returns schema or false
+   */
+  async getPteroById(pteroId: string): Promise<type_PteroSchema | false> {
+    try {
+      const ptero = await db
+        .select()
+        .from(pterosTable)
+        .where(eq(pterosTable.id, pteroId))
+        .limit(1);
+
+      if (!ptero[0]) return false;
+
+      return pteroSchema.parse(ptero[0]);
+    } catch (err: any) {
+      console.error(`Error Getting Ptero: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error loading ptero!",
       });
     }
   }

@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
-import { CREATE_PteroSchema } from "./ptero.schema";
+import { CREATE_PteroSchema, PATCH_PteroSchema } from "./ptero.schema";
 import { validateUUID } from "../../core/middlewares/validators";
-import { createPtero, deletePtero } from "./ptero.controller";
+import { createPtero, deletePtero, updatePtero } from "./ptero.controller";
 
 export const pteroRoutes = new Hono().basePath("/ptero");
 
@@ -44,7 +44,7 @@ pteroRoutes.post(
     const validatedUserId = validateUUID(userId);
     const ptero = c.req.valid("json");
 
-    const createdPtero = await createPtero(userId, ptero);
+    const createdPtero = await createPtero(validatedUserId, ptero);
     return c.json({
       ptero_created: createdPtero,
     });
@@ -73,5 +73,53 @@ pteroRoutes.delete(
     await deletePtero(validatedUserId, validatedPteroId);
 
     return c.json({ ptero_deleted: validatedPteroId });
+  },
+);
+
+pteroRoutes.patch(
+  "update/:userId/:pteroId",
+  describeRoute({
+    summary: "Update an existing ptero",
+    description: `
+    Updates an existing ptero inside the database if who requested has permissions for that
+
+    to update the owner of the ptero it needs to be the current owner to do it
+
+    retquired: UserId, PteroId, PatchSchema
+    `,
+    tags: ["Pteros"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              userId: {
+                type: "string",
+                example: "uuid",
+              },
+              name: {
+                type: "string",
+                example: "Ankylosaurus",
+              },
+            },
+          },
+        },
+      },
+    },
+  }),
+  sValidator("json", PATCH_PteroSchema),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+    const ptero = c.req.valid("json");
+
+    const updatedPtero = await updatePtero(
+      validatedUserId,
+      validatedPteroId,
+      ptero,
+    );
+    return c.json(updatedPtero);
   },
 );
