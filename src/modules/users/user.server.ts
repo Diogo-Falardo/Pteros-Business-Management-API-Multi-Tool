@@ -1,3 +1,4 @@
+import * as argon2 from "argon2";
 import { HTTPException } from "hono/http-exception";
 import { db } from "../../db/db.index";
 import { usersTable } from "../../db/schema";
@@ -34,6 +35,33 @@ export class userServer {
   }
 
   /**
+   * Retuns an User by its Email
+   *
+   * false : means user was not found
+   *
+   * @param email
+   * @returns user schema || boolean
+   */
+  async getUserByEmail(email: string): Promise<type_UserSchema | false> {
+    try {
+      const user = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1);
+
+      if (!user[0]) return false;
+
+      return user[0];
+    } catch (err: any) {
+      console.error(`Error Getting User By Email: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error loading user!",
+      });
+    }
+  }
+
+  /**
    * Validates if there is already an user in db
    *
    * true means there is already an email with that email
@@ -63,12 +91,14 @@ export class userServer {
   }
 
   async createUser(email: string, password: string) {
+    const encryptedPassword = await argon2.hash(password);
+
     try {
       const [user] = await db
         .insert(usersTable)
         .values({
           email,
-          password,
+          password: encryptedPassword,
         })
         .returning();
 
@@ -90,6 +120,32 @@ export class userServer {
       console.error(`Error creating user: ${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: `Ups something went wrong while deleting user!`,
+      });
+    }
+  }
+
+  // compares passwords if they match return id if they dont match return false
+  async authentication(email: string, password: string): Promise<string> {
+    try {
+      const user = await this.getUserByEmail(email);
+      if (!user)
+        throw new HTTPException(HttpStatus.NOT_FOUND, {
+          message: "Email not found!",
+        });
+
+      const currentUserPassword = user.password;
+
+      if (await argon2.verify(currentUserPassword, password)) {
+        return user.id;
+      } else {
+        throw new HTTPException(HttpStatus.FORBIDDEN, {
+          message: "Access Denied! Wrong Password!",
+        });
+      }
+    } catch (err: any) {
+      console.error(`Error Authenticating User: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: `Ups loggin failed!`,
       });
     }
   }

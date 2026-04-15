@@ -16,3 +16,8 @@ export const CREATE_UserSchema = UserSchema.pick({
 });
 
 export type type_CREATE_UserSchema = z.infer<typeof CREATE_UserSchema>;
+
+export const LoginSchema = UserSchema.pick({
+  email: true,
+  password: true,
+});

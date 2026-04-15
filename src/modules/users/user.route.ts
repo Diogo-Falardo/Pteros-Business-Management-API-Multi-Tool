@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
-import { CREATE_UserSchema } from "./user.schema";
-import { createUser, deleteUser } from "./user.controller";
+import { CREATE_UserSchema, LoginSchema } from "./user.schema";
+import { createUser, deleteUser, loginUser } from "./user.controller";
 import { validateUUID } from "../../core/middlewares/validators";
 
 export const userRoutes = new Hono().basePath("/user");
@@ -78,5 +78,40 @@ userRoutes.delete(
     return c.json({
       deleted_user: result,
     });
+  },
+);
+
+userRoutes.post(
+  "login",
+  describeRoute({
+    summary: "Login an User",
+    description: `Logins an User and returns the user id
+  required: Email, Password
+  `,
+    tags: ["Users", "Authentication"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              email: {
+                type: "string",
+                format: "email",
+                example: "user@example.com",
+              },
+              password: { type: "string", example: "123Ul!" },
+            },
+            required: ["email", "password"],
+          },
+        },
+      },
+      required: true,
+    },
+  }),
+  sValidator("json", LoginSchema),
+  async (c) => {
+    const { email, password } = c.req.valid("json");
+    return c.json(await loginUser(email, password));
   },
 );
