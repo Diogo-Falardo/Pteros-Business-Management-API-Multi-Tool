@@ -12,6 +12,7 @@ export const pterosTable = pgTable("pteros", {
     .notNull()
     .references(() => usersTable.id),
   name: varchar({ length: 255 }).notNull(),
+  inviteLink: uuid("invite_link").unique(),
 });
 
 export const pterosStaffTable = pgTable("pteros_Staff", {

@@ -53,7 +53,11 @@ export class pteroServer {
       await this.permissionsService.setOwnerPermissions(ownerRoleId);
 
       // add owner to ptero staff table
-      await this.staffService.addOwner(userId, newPtero[0].id, ownerRoleId);
+      await this.staffService.addRoleToUserId(
+        userId,
+        newPtero[0].id,
+        ownerRoleId,
+      );
 
       return newPtero;
     } catch (err: any) {
@@ -159,18 +163,87 @@ export class pteroServer {
       });
     }
   }
+
+  async addInviteLink(
+    pteroId: string,
+    inviteLink: string,
+  ): Promise<string | false> {
+    try {
+      const generatedInviteLink = await db
+        .update(pterosTable)
+        .set({ inviteLink })
+        .where(eq(pterosTable.id, pteroId))
+        .returning();
+
+      if (!generatedInviteLink[0].inviteLink) return false;
+
+      return generatedInviteLink[0].inviteLink;
+    } catch (err: any) {
+      console.error(`Error Adding Invite Link: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error creating invite link!",
+      });
+    }
+  }
+  /**
+   * this function should return to what ptero does that invite link cames from
+   *
+   * false means that invite link was not found
+   *
+   * @param inviteLink
+   * @return pteroId or false
+   */
+  async validateInviteLink(inviteLink: string): Promise<string | false> {
+    try {
+      const ptero = await db
+        .select()
+        .from(pterosTable)
+        .where(eq(pterosTable.inviteLink, inviteLink))
+        .limit(1);
+
+      if (!ptero[0]) return false;
+
+      return ptero[0].id;
+    } catch (err: any) {
+      console.error(`Error Validating Invite Link: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error using invite link! Please try again later!",
+      });
+    }
+  }
+
+  async checkIfIsOwner(userId: string, pteroId: string) {
+    try {
+      const user = await db
+        .select()
+        .from(pterosTable)
+        .where(and(eq(pterosTable.userId, userId), eq(pterosTable.id, pteroId)))
+        .limit(1);
+
+      if (!user[0]) return false;
+
+      return true;
+    } catch (err: any) {
+      console.error(`Error Checking If User Is Owner: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error loading user!",
+      });
+    }
+  }
 }
 
 export class pteroStaffServer {
   rolesService = new pterosRolesServer();
 
-  async addOwner(userId: string, pteroId: string, roleId: string) {
+  async addRoleToUserId(userId: string, pteroId: string, roleId: string) {
     try {
       await db.insert(pterosStaffTable).values({ userId, pteroId, roleId });
     } catch (err: any) {
-      console.error(`Error Creating Role Owner: ${err?.message}`);
+      console.error(
+        `Error Adding Role to User Id in Ptero Staff: ${err?.message}`,
+      );
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error creating ptero!",
+        message: "Error in ptero!",
       });
     }
   }
@@ -233,7 +306,7 @@ export class pteroStaffServer {
 export class pterosRolesServer {
   async createRoleOwner(pteroId: string) {
     try {
-      const ownerId = await db
+      const ownerRoleId = await db
         .insert(pterosRolesTable)
         .values({
           pteroId,
@@ -241,11 +314,30 @@ export class pterosRolesServer {
         })
         .returning();
 
-      return ownerId[0].id;
+      return ownerRoleId[0].id;
     } catch (err: any) {
       console.error(`Error Creating Role Owner: ${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: "Error creating ptero!",
+      });
+    }
+  }
+
+  async createRoleViewer(pteroId: string) {
+    try {
+      const viewerRoleId = await db
+        .insert(pterosRolesTable)
+        .values({
+          pteroId,
+          role: "Viewer",
+        })
+        .returning();
+
+      return viewerRoleId[0].id;
+    } catch (err: any) {
+      console.error(`Error Creating Role Viewer: ${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error using invite link! Please try again later!",
       });
     }
   }
@@ -278,6 +370,38 @@ export class pterosRolesServer {
       return roleName[0].role;
     } catch (err: any) {
       console.error(`Error Getting Role Name${err?.message}`);
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: "Error loading user",
+      });
+    }
+  }
+
+  /**
+   * Returns roleId or false if role was not found
+   * @param pteroId
+   * @param roleName
+   */
+  async getRoleIdFromRoleName(
+    pteroId: string,
+    roleName: string,
+  ): Promise<string | false> {
+    try {
+      const roleId = await db
+        .select({ roleId: pterosRolesTable.id })
+        .from(pterosRolesTable)
+        .where(
+          and(
+            eq(pterosRolesTable.pteroId, pteroId),
+            eq(pterosRolesTable.role, roleName),
+          ),
+        )
+        .limit(1);
+
+      if (!roleId[0]) return false;
+
+      return roleId[0].roleId;
+    } catch (err: any) {
+      console.error(`Error Getting Role Id From Role Name${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: "Error loading user",
       });

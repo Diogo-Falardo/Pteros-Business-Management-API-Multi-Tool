@@ -11,6 +11,7 @@ import {
   pteroStaffServer,
 } from "./ptero.server";
 import { validateIfUserHasRequiredPermissions } from "../../core/middlewares/validators";
+import { v4 } from "uuid";
 
 const userService = new userServer();
 const pteroService = new pteroServer();
@@ -70,13 +71,13 @@ export const updatePtero = async (
 ) => {
   // permission is
   //   {
-  //   "id": "4e097dc7-06f2-4290-a11f-cb56f386c388",
-  //   "permission": "Update ptero Info"
+  //   "id": "414c142c-76fd-46fd-ba88-8bb2eae01adc",
+  //   "permission": "Update Ptero Info"
   // }
   const checkIfUserHasPermission = await validateIfUserHasRequiredPermissions(
     userId,
     pteroId,
-    "4e097dc7-06f2-4290-a11f-cb56f386c388",
+    "414c142c-76fd-46fd-ba88-8bb2eae01adc",
   );
 
   if (!checkIfUserHasPermission)
@@ -100,4 +101,62 @@ export const updatePtero = async (
   }
 
   return await pteroService.updatePtero(pteroId, patchPteroSchema);
+};
+
+// generate an invite link for now in dev state is just simple as generating an UUID unique
+// add that to the ptero table
+export const generateInviteLink = async (pteroId: string) => {
+  const inviteLink = v4();
+
+  // CAREFULL
+  // we are passing the invite link without validating if does not colide with any existing one
+  // the chances are really low but it can happen so -> just dont be lazy as me now and add it
+  return await pteroService.addInviteLink(pteroId, inviteLink);
+};
+
+// again as we on dev mode still this will be simple as
+// we create a new role if not exists already and add user to that role
+// user will have "viewer" -> role another role that cannot be deleted
+// and has no permissions the role
+export const useInviteLink = async (userId: string, inviteLink: string) => {
+  const pteroId = await pteroService.validateInviteLink(inviteLink);
+  if (!pteroId)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "Invite link was not found!",
+    });
+
+  // check if the owner is not trying to use the invite link
+  const checkIfIsOwner = await pteroService.checkIfIsOwner(userId, pteroId);
+  if (checkIfIsOwner)
+    throw new HTTPException(HttpStatus.FORBIDDEN, {
+      message: "You cant join your own server!",
+    });
+
+  // check if there is already a view role
+  // this if first try to get View Role Id from that ptero
+  const roleId = await pteroRolesService.getRoleIdFromRoleName(
+    pteroId,
+    "Viewer",
+  );
+
+  console.log(roleId);
+  if (!roleId) {
+    const newRoleId = await pteroRolesService.createRoleViewer(pteroId);
+    await pteroStaffService.addRoleToUserId(userId, pteroId, newRoleId);
+  } else {
+    // check if user is not already part of that ptero
+    const validateIfUserIsInPtero = await pteroStaffService.isUserAStaffMember(
+      userId,
+      pteroId,
+    );
+
+    if (validateIfUserIsInPtero) {
+      console.log(validateIfUserIsInPtero);
+      throw new HTTPException(HttpStatus.FORBIDDEN, {
+        message: "You are already part of this ptero!",
+      });
+    }
+
+    await pteroStaffService.addRoleToUserId(userId, pteroId, roleId);
+  }
 };

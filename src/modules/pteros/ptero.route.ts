@@ -1,9 +1,19 @@
 import { Hono } from "hono";
 import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
-import { CREATE_PteroSchema, PATCH_PteroSchema } from "./ptero.schema";
+import {
+  CREATE_PteroSchema,
+  inviteLinkSchema,
+  PATCH_PteroSchema,
+} from "./ptero.schema";
 import { validateUUID } from "../../core/middlewares/validators";
-import { createPtero, deletePtero, updatePtero } from "./ptero.controller";
+import {
+  createPtero,
+  deletePtero,
+  generateInviteLink,
+  updatePtero,
+  useInviteLink,
+} from "./ptero.controller";
 
 export const pteroRoutes = new Hono().basePath("/ptero");
 
@@ -121,5 +131,73 @@ pteroRoutes.patch(
       ptero,
     );
     return c.json(updatedPtero);
+  },
+);
+
+pteroRoutes.post(
+  "generate-invite-link/:pteroId",
+  describeRoute({
+    summary: "Create an invite link to a ptero",
+    description: `
+    Creates a new invite link to an existing pteros
+
+    Possible bugs ecounter: 
+    -> NOT IMPLEMENTED DO TO NOT BE URGENT
+    - There is NO validation for same uuids or invite links in pteros table
+    - There is no validation if ptero has already an invite link
+    
+    required: PteroId
+    `,
+    tags: ["Pteros"],
+  }),
+  async (c) => {
+    const { pteroId } = c.req.param();
+    const validatedPteroId = validateUUID(pteroId);
+
+    const generatedInviteLink = await generateInviteLink(validatedPteroId);
+    return c.json({ invite_link: generatedInviteLink });
+  },
+);
+
+pteroRoutes.post(
+  "use-invite-link/:userId",
+  describeRoute({
+    summary: "Use an Invite Link",
+    description: `
+    Uses an Invite Link used by an User trying to join a ptero
+    
+    It sets a new role inside of staff called viewer
+    -> Viewer:
+      -> Does not have any permission is just there to view
+      -> This role cannot be deleted
+
+    `,
+    tags: ["Pteros"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              inviteLink: {
+                type: "string",
+                example: "uuid",
+              },
+            },
+            required: ["inviteLink"],
+          },
+        },
+      },
+      required: true,
+    },
+  }),
+  sValidator("json", inviteLinkSchema),
+  async (c) => {
+    const { userId } = c.req.param();
+    const valdidateUserId = validateUUID(userId);
+    const { inviteLink } = c.req.valid("json");
+
+    await useInviteLink(valdidateUserId, inviteLink);
+    return c.text("Joined");
   },
 );

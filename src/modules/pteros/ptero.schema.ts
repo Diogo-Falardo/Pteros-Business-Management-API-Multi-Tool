@@ -7,6 +7,7 @@ export const pteroSchema = z.object({
     .string()
     .min(1, { message: "Ptero name is required" })
     .max(255, { message: "Ptero name has a max of 255 characters" }),
+  inviteLink: z.uuid(),
 });
 
 export type type_PteroSchema = z.infer<typeof pteroSchema>;
@@ -42,3 +43,7 @@ export const PATCH_PteroSchema = pteroSchema
   .partial();
 
 export type type_PATCH_PteroSchema = z.infer<typeof PATCH_PteroSchema>;
+
+export const inviteLinkSchema = pteroSchema.pick({
+  inviteLink: true,
+});
