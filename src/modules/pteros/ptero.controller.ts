@@ -6,17 +6,14 @@ import {
 } from "./ptero.schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import {
-  pteroServer,
-  pterosRolesServer,
-  pteroStaffServer,
-} from "./ptero.server";
+  pteroService,
+  pteroRolesService,
+  pteroStaffService,
+} from "./ptero.services";
 import { validateIfUserHasRequiredPermissions } from "../../core/middlewares/validators";
 import { v4 } from "uuid";
 
 const userService = new userServer();
-const pteroService = new pteroServer();
-const pteroRolesService = new pterosRolesServer();
-const pteroStaffService = new pteroStaffServer();
 
 // validate if user exists
 // create an ptero associated to that user
@@ -159,4 +156,23 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
 
     await pteroStaffService.addRoleToUserId(userId, pteroId, roleId);
   }
+};
+
+// before getting the list
+// validate if the user exists
+export const pteroListFromAnUser = async (userId: string) => {
+  const validateIfUserExists = await userService.getUserByUserId(userId);
+  if (!validateIfUserExists)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "User not found!",
+    });
+
+  const pterosList = await pteroService.listPterosAssociatedToAnUser(userId);
+  if (!pterosList) {
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "No pteros found associated to you",
+    });
+  }
+
+  return pterosList;
 };

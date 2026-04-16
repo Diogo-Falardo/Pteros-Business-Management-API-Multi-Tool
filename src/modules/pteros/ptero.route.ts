@@ -11,6 +11,7 @@ import {
   createPtero,
   deletePtero,
   generateInviteLink,
+  pteroListFromAnUser,
   updatePtero,
   useInviteLink,
 } from "./ptero.controller";
@@ -199,5 +200,32 @@ pteroRoutes.post(
 
     await useInviteLink(valdidateUserId, inviteLink);
     return c.text("Joined");
+  },
+);
+
+pteroRoutes.get(
+  "list/:userId",
+  describeRoute({
+    summary: "Get the list of pteros from an user",
+    description: `
+    Return the list of pteros associated to that user
+    
+    `,
+    tags: ["Pteros", "Users"],
+    responses: {
+      404: {
+        description: "Not found the user or pteros",
+      },
+      200: {
+        description: "Ptero list",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+
+    const pterosList = await pteroListFromAnUser(validatedUserId);
+    return c.json({ pteros_list: pterosList });
   },
 );

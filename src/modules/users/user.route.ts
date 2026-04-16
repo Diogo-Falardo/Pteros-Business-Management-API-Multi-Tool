@@ -15,7 +15,7 @@ userRoutes.post(
     description: `Creates a new user to ptero database
     required: Email, Password
     `,
-    tags: ["Users"],
+    tags: ["Users", "Authentication"],
     requestBody: {
       content: {
         "application/json": {
@@ -112,6 +112,6 @@ userRoutes.post(
   sValidator("json", LoginSchema),
   async (c) => {
     const { email, password } = c.req.valid("json");
-    return c.json(await loginUser(email, password));
+    return c.json({ userId: await loginUser(email, password) });
   },
 );

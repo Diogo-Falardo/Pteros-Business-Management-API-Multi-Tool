@@ -11,18 +11,45 @@ import { permissionsServer } from "../../core/admin/global.server";
 import { and, eq } from "drizzle-orm";
 import {
   pteroSchema,
+  pteroSimplifiedSchema,
   pteroStaffInfoSchema,
   type_PATCH_PteroSchema,
   type_PteroSchema,
+  type_PteroSimplifiedSchema,
   type_PteroStaffInfoSchema,
 } from "./ptero.schema";
 
 const globalPermissionService = new permissionsServer();
 
 export class pteroServer {
-  staffService = new pteroStaffServer();
-  rolesService = new pterosRolesServer();
-  permissionsService = new pterosRolesPermissionsServer();
+  private _pteroStaffService?: pteroStaffServer;
+  private _pteroRolesService?: pterosRolesServer;
+  private _pteroRolesPermissionsService?: pterosRolesPermissionsServer;
+
+  set pteroStaffService(s: pteroStaffServer) {
+    this._pteroStaffService = s;
+  }
+  get pteroStaffService() {
+    if (!this._pteroStaffService) throw new Error("PteroStaffService not set");
+    return this._pteroStaffService;
+  }
+
+  set pteroRolesService(s: pterosRolesServer) {
+    this._pteroRolesService = s;
+  }
+  get pteroRolesService() {
+    if (!this._pteroRolesService) throw new Error("PteroRolesService not set");
+    return this._pteroRolesService;
+  }
+
+  set pteroRolesPermissionsService(s: pterosRolesPermissionsServer) {
+    this._pteroRolesPermissionsService = s;
+  }
+  get pteroRolesPermissionsService() {
+    if (!this._pteroRolesPermissionsService)
+      throw new Error("PterosRolesPermissionsService not set");
+    return this._pteroRolesPermissionsService;
+  }
 
   /**
    * Logic behind creating a ptero
@@ -45,15 +72,15 @@ export class pteroServer {
         .returning();
 
       //create owner role
-      const ownerRoleId = await this.rolesService.createRoleOwner(
+      const ownerRoleId = await this.pteroRolesService.createRoleOwner(
         newPtero[0].id,
       );
 
       // add permission to owner
-      await this.permissionsService.setOwnerPermissions(ownerRoleId);
+      await this.pteroRolesPermissionsService.setOwnerPermissions(ownerRoleId);
 
       // add owner to ptero staff table
-      await this.staffService.addRoleToUserId(
+      await this.pteroStaffService.addRoleToUserId(
         userId,
         newPtero[0].id,
         ownerRoleId,
@@ -230,10 +257,70 @@ export class pteroServer {
       });
     }
   }
+
+  /**
+   * gets the list of pteros than an user is part of
+   *
+   * False means there is no pteros associated to that user
+   *
+   * @param userId
+   * @returns Simplified Schema of ptero or False
+   */
+  async listPterosAssociatedToAnUser(userId: string) {
+    try {
+      const pteros = await db
+        .select({ id: pterosTable.id, name: pterosTable.name })
+        .from(pterosTable)
+        .where(eq(pterosTable.userId, userId));
+
+      if (!pteros) return false;
+
+      // find if user is staff of any pteros
+      const pterosUserIsStaff =
+        await this.pteroStaffService.getListOfPterosUserIsStaff(userId);
+
+      let pterosList = pteros;
+      if (pterosUserIsStaff && pterosUserIsStaff.length > 0) {
+        pterosList = [...pteros, ...pterosUserIsStaff];
+      }
+
+      const uniquePteros = pterosList.filter(
+        (p, i, s) => i === s.findIndex((t) => t.id === p.id),
+      );
+      return pteroSimplifiedSchema.array().parse(uniquePteros);
+    } catch (err: any) {
+      if (err instanceof HTTPException) {
+        throw err;
+      }
+      console.error(
+        `Error Listing Pteros Associated To An User: ${err?.message}`,
+      );
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: `Error loading pteros`,
+      });
+    }
+  }
 }
 
 export class pteroStaffServer {
-  rolesService = new pterosRolesServer();
+  private _pteroService?: pteroServer;
+  private _pteroRolesService?: pterosRolesServer;
+
+  set pteroService(s: pteroServer) {
+    this._pteroService = s;
+  }
+  get pteroService() {
+    if (!this._pteroService) throw new Error("pteroService not set");
+    return this._pteroService;
+  }
+
+  set pteroRolesService(s: pterosRolesServer) {
+    this._pteroRolesService = s;
+  }
+  get pteroRolesService() {
+    if (!this._pteroRolesService) throw new Error("pteroRolesService not set");
+    return this._pteroRolesService;
+  }
 
   async addRoleToUserId(userId: string, pteroId: string, roleId: string) {
     try {
@@ -275,7 +362,7 @@ export class pteroStaffServer {
 
       if (!userRole[0]) return false;
 
-      const roleName = await this.rolesService.getRoleName(
+      const roleName = await this.pteroRolesService.getRoleName(
         pteroId,
         userRole[0].roleId,
       );
@@ -298,6 +385,48 @@ export class pteroStaffServer {
       );
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: "Error loading user",
+      });
+    }
+  }
+
+  /**
+   * this method returns the lisf of pteros an user is part of
+   *
+   * false means user is not part of any ptero
+   *
+   * @param userId
+   * @returns simplifed ptero schema | false
+   */
+  async getListOfPterosUserIsStaff(
+    userId: string,
+  ): Promise<Array<type_PteroSimplifiedSchema> | false> {
+    try {
+      const pteros = await db
+        .select({ pteroId: pterosStaffTable.pteroId })
+        .from(pterosStaffTable)
+        .where(eq(pterosStaffTable.userId, userId));
+
+      if (!pteros) return false;
+
+      // for every ptero that user is part of get the ptero info
+      const pterosUserIsStaffOf = await Promise.all(
+        pteros.map(async (p) => {
+          return await this.pteroService.getPteroById(p.pteroId);
+        }),
+      );
+
+      if (!pterosUserIsStaffOf) return false;
+
+      return pteroSimplifiedSchema.array().parse(pterosUserIsStaffOf);
+    } catch (err: any) {
+      if (err instanceof HTTPException) {
+        throw err;
+      }
+      console.error(
+        `Error Listing Pteros That an User is Staff off: ${err?.message}`,
+      );
+      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: `Error loading pteros`,
       });
     }
   }

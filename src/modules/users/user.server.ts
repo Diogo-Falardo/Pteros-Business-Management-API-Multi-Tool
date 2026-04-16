@@ -143,6 +143,9 @@ export class userServer {
         });
       }
     } catch (err: any) {
+      if (err instanceof HTTPException) {
+        throw err;
+      }
       console.error(`Error Authenticating User: ${err?.message}`);
       throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
         message: `Ups loggin failed!`,
