@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler, describeRoute } from "hono-openapi";
 import { healthRoutes } from "./modules/health/health.routes";
@@ -9,8 +10,11 @@ import { adminRoutes } from "./core/admin/global.route";
 
 const app = new Hono();
 
+// free for everyone to access because this is not production
+app.use("*", cors());
+
 app.route("/v1", healthRoutes);
-app.route("/", adminRoutes);
+app.route("/admin/", adminRoutes);
 app.route("/", userRoutes);
 app.route("/", pteroRoutes);
 
@@ -57,7 +61,13 @@ app.get("/scalar", Scalar({ url: "/doc" }));
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    return err.getResponse();
+    // extracting error
+    const status = err.status;
+    const message = err.message || "unkown error";
+
+    console.log(message);
+
+    return c.json({ error: message }, status);
   }
   console.error(err);
   return c.text("Internal Server Error", 500);
