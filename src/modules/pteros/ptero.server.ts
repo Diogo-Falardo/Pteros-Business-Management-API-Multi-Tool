@@ -18,6 +18,7 @@ import {
   type_PteroSimplifiedSchema,
   type_PteroStaffInfoSchema,
 } from "./ptero.schema";
+import { catchError } from "../../core/middlewares/error";
 
 const globalPermissionService = new permissionsServer();
 
@@ -87,10 +88,11 @@ export class pteroServer {
       );
 
       return newPtero;
-    } catch (err: any) {
-      console.error(`Error Creating a Ptero: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error creating ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Creating a Ptero:",
+        exceptionErrorMessage: "Error creating ptero!",
       });
     }
   }
@@ -98,10 +100,11 @@ export class pteroServer {
   async deletePtero(pteroId: string) {
     try {
       await db.delete(pterosTable).where(eq(pterosTable.id, pteroId));
-    } catch (err: any) {
-      console.error(`Error Deleting Ptero: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error deleting ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Deleting Ptero:",
+        exceptionErrorMessage: "Error deleting ptero!",
       });
     }
   }
@@ -157,10 +160,11 @@ export class pteroServer {
         .returning();
 
       return pteroSchema.parse(updatedPtero[0]);
-    } catch (err: any) {
-      console.error(`Error Updating Ptero: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error update ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Updating Ptero:",
+        exceptionErrorMessage: "Error updating ptero!",
       });
     }
   }
@@ -183,10 +187,11 @@ export class pteroServer {
       if (!ptero[0]) return false;
 
       return pteroSchema.parse(ptero[0]);
-    } catch (err: any) {
-      console.error(`Error Getting Ptero: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting Ptero:",
+        exceptionErrorMessage: "Error loading ptero!",
       });
     }
   }
@@ -205,10 +210,11 @@ export class pteroServer {
       if (!generatedInviteLink[0].inviteLink) return false;
 
       return generatedInviteLink[0].inviteLink;
-    } catch (err: any) {
-      console.error(`Error Adding Invite Link: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error creating invite link!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Adding Invite Link:",
+        exceptionErrorMessage: "Error creating invite link!",
       });
     }
   }
@@ -231,10 +237,12 @@ export class pteroServer {
       if (!ptero[0]) return false;
 
       return ptero[0].id;
-    } catch (err: any) {
-      console.error(`Error Validating Invite Link: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error using invite link! Please try again later!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Validating Invite Link:",
+        exceptionErrorMessage:
+          "Error using invite link! Please try again later!",
       });
     }
   }
@@ -250,10 +258,11 @@ export class pteroServer {
       if (!user[0]) return false;
 
       return true;
-    } catch (err: any) {
-      console.error(`Error Checking If User Is Owner: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Checking If User Is Owner:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -288,15 +297,11 @@ export class pteroServer {
         (p, i, s) => i === s.findIndex((t) => t.id === p.id),
       );
       return pteroSimplifiedSchema.array().parse(uniquePteros);
-    } catch (err: any) {
-      if (err instanceof HTTPException) {
-        throw err;
-      }
-      console.error(
-        `Error Listing Pteros Associated To An User: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Error loading pteros`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Listing Pteros Associated To An User:",
+        exceptionErrorMessage: "Error loading pteros",
       });
     }
   }
@@ -325,12 +330,11 @@ export class pteroStaffServer {
   async addRoleToUserId(userId: string, pteroId: string, roleId: string) {
     try {
       await db.insert(pterosStaffTable).values({ userId, pteroId, roleId });
-    } catch (err: any) {
-      console.error(
-        `Error Adding Role to User Id in Ptero Staff: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error in ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Adding Role to User Id in Ptero Staff:",
+        exceptionErrorMessage: "Error in ptero!",
       });
     }
   }
@@ -379,12 +383,11 @@ export class pteroStaffServer {
       };
 
       return pteroStaffInfoSchema.parse(info);
-    } catch (err: any) {
-      console.error(
-        `Error Validating If User Is A Staff Member ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Validating If User Is A Staff Member:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -418,15 +421,11 @@ export class pteroStaffServer {
       if (!pterosUserIsStaffOf) return false;
 
       return pteroSimplifiedSchema.array().parse(pterosUserIsStaffOf);
-    } catch (err: any) {
-      if (err instanceof HTTPException) {
-        throw err;
-      }
-      console.error(
-        `Error Listing Pteros That an User is Staff off: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Error loading pteros`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Listing Pteros That an User is Staff off:",
+        exceptionErrorMessage: "Error loading pteros!",
       });
     }
   }
@@ -444,10 +443,11 @@ export class pterosRolesServer {
         .returning();
 
       return ownerRoleId[0].id;
-    } catch (err: any) {
-      console.error(`Error Creating Role Owner: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error creating ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Creating Role Owner:",
+        exceptionErrorMessage: "Error creating ptero!",
       });
     }
   }
@@ -463,10 +463,12 @@ export class pterosRolesServer {
         .returning();
 
       return viewerRoleId[0].id;
-    } catch (err: any) {
-      console.error(`Error Creating Role Viewer: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error using invite link! Please try again later!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Creating Role Viewer:",
+        exceptionErrorMessage:
+          "Error using invite link! Please try again later!",
       });
     }
   }
@@ -497,10 +499,11 @@ export class pterosRolesServer {
       if (!roleName[0]) return false;
 
       return roleName[0].role;
-    } catch (err: any) {
-      console.error(`Error Getting Role Name${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting Role Name:",
+        exceptionErrorMessage: "Error loading user",
       });
     }
   }
@@ -529,10 +532,11 @@ export class pterosRolesServer {
       if (!roleId[0]) return false;
 
       return roleId[0].roleId;
-    } catch (err: any) {
-      console.error(`Error Getting Role Id From Role Name${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting Role Id From Role Name:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -554,10 +558,11 @@ export class pterosRolesPermissionsServer {
           .insert(pterosRolesPermissionsTable)
           .values({ roleId, permissonId: permission.id });
       }
-    } catch (err: any) {
-      console.error(`Error Setting Owner Permissions: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error creating ptero!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Setting Owner Permissions:",
+        exceptionErrorMessage: "Error creating ptero!",
       });
     }
   }
@@ -592,12 +597,11 @@ export class pterosRolesPermissionsServer {
       if (!isValid[0]) return false;
 
       return true;
-    } catch (err: any) {
-      console.error(
-        `Error Validating If Role Id Has Permissions Id: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Validating If Role Id Has Permissions Id:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }

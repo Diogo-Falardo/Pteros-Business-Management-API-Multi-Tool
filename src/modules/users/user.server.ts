@@ -5,6 +5,7 @@ import { usersTable } from "../../db/schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import { eq } from "drizzle-orm";
 import { type_UserSchema } from "./user.schema";
+import { catchError } from "../../core/middlewares/error";
 
 export class userServer {
   /**
@@ -26,10 +27,11 @@ export class userServer {
       if (!user[0]) return false;
 
       return user[0];
-    } catch (err: any) {
-      console.error(`Error Getting User By User Id: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting User By User Id:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -53,10 +55,11 @@ export class userServer {
       if (!user[0]) return false;
 
       return user[0];
-    } catch (err: any) {
-      console.error(`Error Getting User By Email: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting User By Email:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -80,12 +83,11 @@ export class userServer {
 
       if (user[0]) return true;
       else return false;
-    } catch (err: any) {
-      console.error(
-        `Error Validating If Email Already Exists: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: "Error loading user!",
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Validating If Email Already Exists:",
+        exceptionErrorMessage: "Error loading user!",
       });
     }
   }
@@ -103,10 +105,11 @@ export class userServer {
         .returning();
 
       return user;
-    } catch (err: any) {
-      console.error(`Error creating user: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups something went wrong while creating user!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Creating User:",
+        exceptionErrorMessage: "Ups something went wrong while creating user!",
       });
     }
   }
@@ -116,10 +119,11 @@ export class userServer {
       await db.delete(usersTable).where(eq(usersTable.id, userId));
 
       return "User Deleted";
-    } catch (err: any) {
-      console.error(`Error creating user: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups something went wrong while deleting user!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Deleting User:",
+        exceptionErrorMessage: "Ups something went wrong while deleting user!",
       });
     }
   }
@@ -142,13 +146,11 @@ export class userServer {
           message: "Access Denied! Wrong Password!",
         });
       }
-    } catch (err: any) {
-      if (err instanceof HTTPException) {
-        throw err;
-      }
-      console.error(`Error Authenticating User: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups loggin failed!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Authenticating User",
+        exceptionErrorMessage: "Ups loggin failed!",
       });
     }
   }

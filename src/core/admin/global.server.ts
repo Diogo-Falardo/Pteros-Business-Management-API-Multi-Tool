@@ -4,6 +4,7 @@ import { db } from "../../db/db.index";
 import { permissionsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { permissionSchema, type_PermissionSchema } from "./global.schema";
+import { catchError } from "../middlewares/error";
 
 // get the list of permissions setted globally (by: ptero app devs)
 export class permissionsServer {
@@ -12,10 +13,12 @@ export class permissionsServer {
       const permissions = await db.select().from(permissionsTable);
 
       return permissionSchema.array().parse(permissions);
-    } catch (err: any) {
-      console.error(`Error listing permissions: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups something went wrong while getting permissions list!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error listing permissions:",
+        exceptionErrorMessage:
+          "Ups something went wrong while getting permissions list!",
       });
     }
   }
@@ -44,12 +47,12 @@ export class permissionsServer {
       }
 
       return true;
-    } catch (err: any) {
-      console.error(
-        `Error validating if permission already exists: ${err?.message}`,
-      );
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups something went wrong while validating permission!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error validating if permission already exists:",
+        exceptionErrorMessage:
+          "Ups something went wrong while validating permission!",
       });
     }
   }
@@ -64,10 +67,12 @@ export class permissionsServer {
         .returning();
 
       return permission;
-    } catch (err: any) {
-      console.error(`Error creating permission: ${err?.message}`);
-      throw new HTTPException(HttpStatus.INTERNAL_SERVER_ERROR, {
-        message: `Ups something went wrong while creating permission!`,
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error creating permission:",
+        exceptionErrorMessage:
+          "Ups something went wrong while creating permission!",
       });
     }
   }

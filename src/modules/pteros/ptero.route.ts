@@ -199,7 +199,7 @@ pteroRoutes.post(
     const { inviteLink } = c.req.valid("json");
 
     await useInviteLink(valdidateUserId, inviteLink);
-    return c.text("Joined");
+    return c.json("Joined");
   },
 );
 
