@@ -15,6 +15,11 @@ adminRoutes.get(
     summary: "Get the list of permissions",
     description: "Returns the list of available permissions",
     tags: ["Admin"],
+    responses: {
+      200: {
+        description: "Returned list",
+      },
+    },
   }),
   async (c) => {
     const permissionsList = await permissionsService.list();
@@ -51,6 +56,11 @@ adminRoutes.post(
         },
       },
       required: true,
+    },
+    responses: {
+      200: {
+        description: "Permission created",
+      },
     },
   }),
   sValidator("json", admin_CREATE_Permission),

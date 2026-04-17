@@ -48,6 +48,14 @@ pteroRoutes.post(
       },
       required: true,
     },
+    responses: {
+      200: {
+        description: "ptero created",
+      },
+      404: {
+        description: "User not found",
+      },
+    },
   }),
   sValidator("json", CREATE_PteroSchema),
   async (c) => {
@@ -75,6 +83,18 @@ pteroRoutes.delete(
   
   `,
     tags: ["Pteros"],
+    responses: {
+      200: {
+        description: "Ptero deleted",
+      },
+      404: {
+        description:
+          "Ptero was not found, User not found, User is not a staff member",
+      },
+      403: {
+        description: "User doesnt have valid permissions",
+      },
+    },
   }),
   async (c) => {
     const { userId, pteroId } = c.req.param();
@@ -118,6 +138,18 @@ pteroRoutes.patch(
         },
       },
     },
+    responses: {
+      200: {
+        description: "Ptero updated",
+      },
+      403: {
+        description:
+          "User doesnt have permissions, or tried to update ownership of ptero and its not the current owner",
+      },
+      404: {
+        description: "Ptero was not found",
+      },
+    },
   }),
   sValidator("json", PATCH_PteroSchema),
   async (c) => {
@@ -150,6 +182,11 @@ pteroRoutes.post(
     required: PteroId
     `,
     tags: ["Pteros"],
+    responses: {
+      200: {
+        description: "Generated invite link",
+      },
+    },
   }),
   async (c) => {
     const { pteroId } = c.req.param();
@@ -190,6 +227,17 @@ pteroRoutes.post(
         },
       },
       required: true,
+    },
+    responses: {
+      200: {
+        description: "Invite link used",
+      },
+      403: {
+        description: "Cannout join ptero",
+      },
+      404: {
+        description: "Invite link was not found",
+      },
     },
   }),
   sValidator("json", inviteLinkSchema),

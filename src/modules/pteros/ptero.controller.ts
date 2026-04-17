@@ -35,6 +35,13 @@ export const createPtero = async (
 // validate if user who is requesting the delete is a Valid Owner from Ptero Staff
 // delete ptero
 export const deletePtero = async (userId: string, pteroId: string) => {
+  const validateIfPteroExist = await pteroService.getPteroById(pteroId);
+  if (!validateIfPteroExist) {
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "Ptero was not found",
+    });
+  }
+
   const validateUser = await pteroStaffService.isUserAStaffMember(
     userId,
     pteroId,
@@ -88,7 +95,7 @@ export const updatePtero = async (
   console.log("getCurrentPteroInfo " + getCurrentPteroInfo);
   if (!getCurrentPteroInfo)
     throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "Ptero was not found! -contoller",
+      message: "Ptero was not found!",
     });
 
   if (patchPteroSchema.userId && userId !== getCurrentPteroInfo.userId) {
@@ -136,7 +143,6 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
     "Viewer",
   );
 
-  console.log(roleId);
   if (!roleId) {
     const newRoleId = await pteroRolesService.createRoleViewer(pteroId);
     await pteroStaffService.addRoleToUserId(userId, pteroId, newRoleId);

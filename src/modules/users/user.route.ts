@@ -35,6 +35,14 @@ userRoutes.post(
       },
       required: true,
     },
+    responses: {
+      403: {
+        description: "Email already in use",
+      },
+      200: {
+        description: "User Created",
+      },
+    },
   }),
   sValidator("json", CREATE_UserSchema),
   async (c) => {
@@ -67,6 +75,11 @@ userRoutes.delete(
         },
       },
       required: true,
+    },
+    responses: {
+      200: {
+        description: "User Deleted",
+      },
     },
   }),
   sValidator("json", z.object({ userId: z.string() })),
@@ -107,6 +120,17 @@ userRoutes.post(
         },
       },
       required: true,
+    },
+    responses: {
+      200: {
+        description: "User logged with success",
+      },
+      404: {
+        description: "Email not found",
+      },
+      403: {
+        description: "User inserted wrong password",
+      },
     },
   }),
   sValidator("json", LoginSchema),
