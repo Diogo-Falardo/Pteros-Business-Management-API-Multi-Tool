@@ -15,6 +15,7 @@ import {
   pteroStaffListMembers,
   updatePtero,
   useInviteLink,
+  validateIfUserCanAccessPtero,
 } from "./ptero.controller";
 
 export const pteroRoutes = new Hono().basePath("/ptero");
@@ -307,5 +308,41 @@ pteroRoutes.get(
     const staffList = await pteroStaffListMembers(validatedPteroId);
 
     return c.json({ ptero_staff_list: staffList });
+  },
+);
+
+pteroRoutes.get(
+  "allowed/:userId/:pteroId",
+  describeRoute({
+    summary: "Check if user is allowed to access ptero",
+    description: `
+    Checks if the user that is trying to access this ptero is valid staff member 
+
+    if its in staff list it can access otherwise it cannot
+
+    `,
+    tags: ["Pteros", "Users"],
+    responses: {
+      200: {
+        description: "Returns true : user can access",
+      },
+      404: {
+        description: "User not found or ptero not found",
+      },
+      403: {
+        description: "User is not allowed to access the ptero",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    const isUserAllowed = await validateIfUserCanAccessPtero(
+      validatedUserId,
+      validatedPteroId,
+    );
+    return c.json({ isUserAllowed });
   },
 );

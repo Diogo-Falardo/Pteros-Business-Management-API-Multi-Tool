@@ -13,6 +13,7 @@ import {
 } from "./ptero.services";
 import { validateIfUserHasRequiredPermissions } from "../../core/middlewares/validators";
 import { v4 } from "uuid";
+import { check } from "drizzle-orm/gel-core";
 
 const userService = new userServer();
 
@@ -215,4 +216,30 @@ export const pteroStaffListMembers = async (pteroId: string) => {
   console.log(staffList);
 
   return staffList;
+};
+
+export const validateIfUserCanAccessPtero = async (
+  userId: string,
+  pteroId: string,
+) => {
+  const validateIfUserExists = await userService.getUserByUserId(userId);
+  if (!validateIfUserExists)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "User not found",
+    });
+
+  const validateIfPteroExists = await pteroService.getPteroById(pteroId);
+  if (!validateIfPteroExists)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "Ptero not found!",
+    });
+
+  const checkIfUserIsPartOfTheStaff =
+    await pteroStaffService.isUserAStaffMember(userId, pteroId);
+  if (!checkIfUserIsPartOfTheStaff)
+    throw new HTTPException(HttpStatus.FORBIDDEN, {
+      message: "Access denied! User is not a staff member!",
+    });
+
+  return true;
 };

@@ -35,3 +35,13 @@ export const loginUser = async (email: string, password: string) => {
 
   return await UserService.authentication(email, password);
 };
+
+export const getUserInfo = async (userId: string) => {
+  const user = await UserService.getUserByUserId(userId);
+  if (!user)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "User not found!",
+    });
+
+  return user.email;
+};

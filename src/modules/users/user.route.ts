@@ -3,7 +3,12 @@ import { z } from "zod";
 import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
 import { CREATE_UserSchema, LoginSchema } from "./user.schema";
-import { createUser, deleteUser, loginUser } from "./user.controller";
+import {
+  createUser,
+  deleteUser,
+  getUserInfo,
+  loginUser,
+} from "./user.controller";
 import { validateUUID } from "../../core/middlewares/validators";
 
 export const userRoutes = new Hono().basePath("/user");
@@ -137,5 +142,29 @@ userRoutes.post(
   async (c) => {
     const { email, password } = c.req.valid("json");
     return c.json({ userId: await loginUser(email, password) });
+  },
+);
+
+userRoutes.get(
+  "user-info/:userId",
+  describeRoute({
+    summary: "Get user info",
+    description: `
+    Get the email from an user
+    `,
+    responses: {
+      200: {
+        description: "User email",
+      },
+      404: {
+        description: "User not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+
+    return c.json({ user_email: await getUserInfo(validatedUserId) });
   },
 );
