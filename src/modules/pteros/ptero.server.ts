@@ -13,10 +13,12 @@ import {
   pteroSchema,
   pteroSimplifiedSchema,
   pteroStaffInfoSchema,
+  pteroStaffUsersInfoSchema,
   type_PATCH_PteroSchema,
   type_PteroSchema,
   type_PteroSimplifiedSchema,
   type_PteroStaffInfoSchema,
+  type_PteroStaffUserInfoSchema,
 } from "./ptero.schema";
 import { catchError } from "../../core/middlewares/error";
 
@@ -426,6 +428,38 @@ export class pteroStaffServer {
         error,
         consoleErrorText: "Error Listing Pteros That an User is Staff off:",
         exceptionErrorMessage: "Error loading pteros!",
+      });
+    }
+  }
+
+  /**
+   * Returns a list of
+   *
+   * @param pteroId
+   * @return a list of ids
+   */
+  async getTheListOfStaffUserIdsFromAPteroId(
+    pteroId: string,
+  ): Promise<Array<type_PteroStaffUserInfoSchema>> {
+    try {
+      const staffMembers = await db
+        .select({
+          userId: pterosStaffTable.userId,
+          roleId: pterosStaffTable.roleId,
+        })
+        .from(pterosStaffTable)
+        .where(eq(pterosStaffTable.pteroId, pteroId));
+
+      console.log("staff members - server");
+      console.log(staffMembers);
+
+      return pteroStaffUsersInfoSchema.array().parse(staffMembers);
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText:
+          "Error Getting The List Of Staff User Ids From A Ptero Id:",
+        exceptionErrorMessage: "Error loading staff members!",
       });
     }
   }

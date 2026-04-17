@@ -35,6 +35,23 @@ export const pteroStaffInfoSchema = pteroStaffSchema
 
 export type type_PteroStaffInfoSchema = z.infer<typeof pteroStaffInfoSchema>;
 
+// this schema was created for the list of users from a ptero sfaff members
+export const pteroStaffUsersInfoSchema = pteroStaffSchema.pick({
+  userId: true,
+  roleId: true,
+});
+export type type_PteroStaffUserInfoSchema = z.infer<
+  typeof pteroStaffUsersInfoSchema
+>;
+
+export const pteroStaffUserInfoExtendedSchema =
+  pteroStaffUsersInfoSchema.extend({
+    role: z.string(),
+  });
+export type type_pteroStaffUserInfoExtendSchema = z.infer<
+  typeof pteroStaffUserInfoExtendedSchema
+>;
+
 export const PATCH_PteroSchema = pteroSchema
   .pick({
     userId: true,

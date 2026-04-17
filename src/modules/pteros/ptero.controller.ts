@@ -3,6 +3,7 @@ import { userServer } from "../users/user.server";
 import {
   type_CREATE_PteroSchema,
   type_PATCH_PteroSchema,
+  type_pteroStaffUserInfoExtendSchema,
 } from "./ptero.schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import {
@@ -181,4 +182,37 @@ export const pteroListFromAnUser = async (userId: string) => {
   }
 
   return pterosList;
+};
+
+// get all the staff member from a ptero and their corresponding roles and permissions
+// get all ptero staff and roles
+// for each ptero staff get the user
+export const pteroStaffListMembers = async (pteroId: string) => {
+  const validateIfPteroExists = await pteroService.getPteroById(pteroId);
+  if (!validateIfPteroExists)
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "Ptero was not found",
+    });
+
+  const staffMemberList =
+    await pteroStaffService.getTheListOfStaffUserIdsFromAPteroId(pteroId);
+
+  let staffList: Array<type_pteroStaffUserInfoExtendSchema> = [];
+
+  // fetch every staff role
+  await Promise.all(
+    staffMemberList.map(async (s) => {
+      const roleName = await pteroRolesService.getRoleName(pteroId, s.roleId);
+      if (!roleName) return;
+      staffList.push({
+        userId: s.userId,
+        roleId: s.roleId,
+        role: roleName,
+      });
+    }),
+  );
+
+  console.log(staffList);
+
+  return staffList;
 };

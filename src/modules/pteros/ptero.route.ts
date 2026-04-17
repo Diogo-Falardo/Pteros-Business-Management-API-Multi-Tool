@@ -12,6 +12,7 @@ import {
   deletePtero,
   generateInviteLink,
   pteroListFromAnUser,
+  pteroStaffListMembers,
   updatePtero,
   useInviteLink,
 } from "./ptero.controller";
@@ -275,5 +276,36 @@ pteroRoutes.get(
 
     const pterosList = await pteroListFromAnUser(validatedUserId);
     return c.json({ pteros_list: pterosList });
+  },
+);
+
+pteroRoutes.get(
+  "list-of-staffs/:pteroId",
+  describeRoute({
+    summary: "Get the list of pteros staff from an ptero id",
+    description: `
+    Returns the list of staff members from a ptero
+
+    If there is a ptero its impossible to return an empty array because
+    an owner is a staff member
+    
+    `,
+    tags: ["Pteros"],
+    responses: {
+      200: {
+        description: "Ptero staff list",
+      },
+      404: {
+        description: "Ptero not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { pteroId } = c.req.param();
+    const validatedPteroId = validateUUID(pteroId);
+
+    const staffList = await pteroStaffListMembers(validatedPteroId);
+
+    return c.json({ ptero_staff_list: staffList });
   },
 );
