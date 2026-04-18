@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
 import { HttpStatus } from "../utils/statusCode";
-import {
-  pterosRolesPermissionsServer,
-  pteroStaffServer,
-} from "../../modules/pteros/ptero.server";
-import { fa } from "zod/v4/locales";
 
-const pteroStaffService = new pteroStaffServer();
-const pterosRolesPermissionsService = new pterosRolesPermissionsServer();
+import {
+  pteroRolesPermissionsService,
+  pteroStaffService,
+} from "../../modules/pteros/ptero.services";
+import { userServer } from "../../modules/users/user.server";
+
+const userService = new userServer();
 
 // generic uuid validation
 export function validateUUID(uuid: string) {
@@ -21,6 +21,40 @@ export function validateUUID(uuid: string) {
   }
 
   return uuid;
+}
+
+type emailValidator = {
+  email: string;
+  throwErrorIfExist?: boolean;
+  throwErrorIfNotExist?: boolean;
+};
+
+/**
+ * Validator to validate if email exists or if email doesnt exist
+ * Impossible to have bouth options at the same time
+ */
+export async function validateEmail({
+  email,
+  throwErrorIfExist = false,
+  throwErrorIfNotExist = false,
+}: emailValidator) {
+  if (throwErrorIfExist && throwErrorIfNotExist) {
+    throw new Error(
+      "validateEmail: throwErrorIfExist and throwErrorIfNotExist cannot both be true. This is a programmer error.",
+    );
+  }
+
+  const validateEmail = await userService.validateIfEmailAlreadyExists(email);
+  if (throwErrorIfExist && validateEmail) {
+    throw new HTTPException(HttpStatus.FORBIDDEN, {
+      message: "Email already in use!",
+    });
+  }
+  if (throwErrorIfNotExist && !validateEmail) {
+    throw new HTTPException(HttpStatus.NOT_FOUND, {
+      message: "Email not found!",
+    });
+  }
 }
 
 // validate if an user has the required permissions
@@ -39,7 +73,7 @@ export async function validateIfUserHasRequiredPermissions(
   if (!isUserAValidStaffMember) return false;
 
   const doesTheRoleHaveThePermission =
-    await pterosRolesPermissionsService.validateIfRoleIdHasPermissionId(
+    await pteroRolesPermissionsService.validateIfRoleIdHasPermissionId(
       isUserAValidStaffMember.roleId,
       permissionId,
     );
