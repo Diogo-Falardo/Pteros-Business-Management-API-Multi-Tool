@@ -1,16 +1,20 @@
 import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
 import { HttpStatus } from "../utils/statusCode";
-
 import {
   pteroRolesPermissionsService,
+  pteroService,
   pteroStaffService,
 } from "../../modules/pteros/ptero.services";
 import { userServer } from "../../modules/users/user.server";
 
 const userService = new userServer();
 
-// generic uuid validation
+/**
+ * Generic uuid validator
+ * @param uuid
+ * @returns uuid
+ */
 export function validateUUID(uuid: string) {
   const parsed = z.uuid().safeParse(uuid);
 
@@ -28,10 +32,9 @@ type emailValidator = {
   throwErrorIfExist?: boolean;
   throwErrorIfNotExist?: boolean;
 };
-
 /**
  * Validator to validate if email exists or if email doesnt exist
- * Impossible to have bouth options at the same time
+ * - **Impossible to have bouth options at the same time!**
  */
 export async function validateEmail({
   email,
@@ -57,10 +60,84 @@ export async function validateEmail({
   }
 }
 
-// validate if an user has the required permissions
-// check if user its a valid staff member
-// if its staff member collect its role
-// if that role has the required permission
+type pteroValidatorOptions = {
+  userId?: string;
+  pteroId?: string;
+  checkUserExists?: boolean;
+  checkPteroExists?: boolean;
+  checkUserIsStaff?: boolean;
+  checkUserHasPermission?: string; // uuid permission id
+};
+
+/**
+ * Ptero Validator with diferent options:
+ * - Validate if user exist
+ * - Validate if ptero exist
+ * - Validate if user is a staff member
+ * - validate if user has permission
+ *
+ * @param options
+ */
+export async function validatePtero(options: pteroValidatorOptions) {
+  if (!options.userId && !options.pteroId) {
+    throw Error(
+      "pteroValidator: Hey developer you need at least an userId or a pteroId to use this validator",
+    );
+  }
+
+  if (options.checkUserExists && options.userId) {
+    const validateUserId = await userService.getUserByUserId(options.userId);
+    if (!validateUserId)
+      throw new HTTPException(HttpStatus.NOT_FOUND, {
+        message: "User not found!",
+      });
+  }
+
+  if (options.checkPteroExists && options.pteroId) {
+    const validatePteroId = await pteroService.getPteroById(options.pteroId);
+    if (!validatePteroId)
+      throw new HTTPException(HttpStatus.NOT_FOUND, {
+        message: "Ptero not found!",
+      });
+  }
+
+  if (options.checkUserIsStaff && options.pteroId && options.userId) {
+    const validateIfUserIsStaff = await pteroStaffService.isUserAStaffMember(
+      options.userId,
+      options.pteroId,
+    );
+    if (!validateIfUserIsStaff)
+      throw new HTTPException(HttpStatus.FORBIDDEN, {
+        message: "Only staff members have access to this!",
+      });
+  }
+
+  if (options.checkUserHasPermission && options.userId && options.pteroId) {
+    const doesUserHasPermissions = validateIfUserHasRequiredPermissions(
+      options.userId,
+      options.pteroId,
+      options.checkUserHasPermission,
+    );
+    if (!doesUserHasPermissions) {
+      throw new HTTPException(HttpStatus.FORBIDDEN, {
+        message:
+          "Error user is not a staff member or doesnt have the required permissions",
+      });
+    }
+  }
+}
+
+/**
+ * Validates if an user has the required permissions by:
+ * 1. validate if its a staff member
+ * 2. collect its role
+ * 3. check if that role has the required permission
+ *
+ * @param userId
+ * @param pteroId
+ * @param permissionId
+ * @returns boolean
+ */
 export async function validateIfUserHasRequiredPermissions(
   userId: string,
   pteroId: string,
