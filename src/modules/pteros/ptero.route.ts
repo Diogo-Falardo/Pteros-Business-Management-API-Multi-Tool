@@ -2,12 +2,14 @@ import { Hono } from "hono";
 import { sValidator } from "@hono/standard-validator";
 import { describeRoute } from "hono-openapi";
 import {
+  CREATE_PteroRoleSchema,
   CREATE_PteroSchema,
   inviteLinkSchema,
   PATCH_PteroSchema,
 } from "./ptero.schema";
 import { validateUUID } from "../../core/middlewares/validators";
 import {
+  createNewPteroRole,
   createPtero,
   deletePtero,
   generateInviteLink,
@@ -344,5 +346,52 @@ pteroRoutes.get(
       validatedPteroId,
     );
     return c.json({ isUserAllowed });
+  },
+);
+
+pteroRoutes.post(
+  "create-role/:userId/:pteroId",
+  describeRoute({
+    summary: "Create a new role for ptero",
+    description: `
+    Creates a new role for ptero
+    
+    Basically creates a new role at the bottom of the hiearchy
+    Updating all other roles to + 1 in hierchy
+
+    `,
+    tags: ["Pteros"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              role: {
+                type: "string",
+                example: "Staff Manager",
+              },
+            },
+            required: ["role"],
+          },
+        },
+      },
+      required: true,
+    },
+  }),
+  sValidator("json", CREATE_PteroRoleSchema),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const { role } = c.req.valid("json");
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    const newRole = await createNewPteroRole(
+      validatedUserId,
+      validatedPteroId,
+      role,
+    );
+
+    return c.json(newRole);
   },
 );

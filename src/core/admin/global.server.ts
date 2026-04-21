@@ -6,8 +6,28 @@ import { eq } from "drizzle-orm";
 import { permissionSchema, type_PermissionSchema } from "./global.schema";
 import { catchError } from "../middlewares/error";
 
-// get the list of permissions setted globally (by: ptero app devs)
+// ptero app dev adminstrator
 export class permissionsServer {
+  async create(permission: string) {
+    try {
+      const newPermission = await db
+        .insert(permissionsTable)
+        .values({
+          permission,
+        })
+        .returning();
+
+      return permission;
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error creating permission:",
+        exceptionErrorMessage:
+          "Ups something went wrong while creating permission!",
+      });
+    }
+  }
+
   async list(): Promise<Array<type_PermissionSchema>> {
     try {
       const permissions = await db.select().from(permissionsTable);
@@ -24,12 +44,10 @@ export class permissionsServer {
   }
 
   /**
-   * Validate if a permission already exists
-   * by the permission name check if the permission is already inserted
-   *
-   * true means exists
-   *
-   * false means can be created
+   * Validate if a permission already exists:
+   * - by the permission name check if the permission is already inserted
+   * - true means exists
+   * - false means can be created
    *
    * @param permission
    * @returns boolean
@@ -53,26 +71,6 @@ export class permissionsServer {
         consoleErrorText: "Error validating if permission already exists:",
         exceptionErrorMessage:
           "Ups something went wrong while validating permission!",
-      });
-    }
-  }
-
-  async create(permission: string) {
-    try {
-      const newPermission = await db
-        .insert(permissionsTable)
-        .values({
-          permission,
-        })
-        .returning();
-
-      return permission;
-    } catch (error) {
-      catchError({
-        error,
-        consoleErrorText: "Error creating permission:",
-        exceptionErrorMessage:
-          "Ups something went wrong while creating permission!",
       });
     }
   }

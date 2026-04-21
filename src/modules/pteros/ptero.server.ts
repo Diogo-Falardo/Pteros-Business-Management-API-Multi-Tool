@@ -8,13 +8,16 @@ import {
   pterosTable,
 } from "../../db/schema";
 import { permissionsServer } from "../../core/admin/global.server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import {
+  pteroRolesSchema,
   pteroSchema,
   pteroSimplifiedSchema,
   pteroStaffInfoSchema,
   pteroStaffUsersInfoSchema,
+  type_CREATE_PteroRolesPermissionsList,
   type_PATCH_PteroSchema,
+  type_PteroRolesSchema,
   type_PteroSchema,
   type_PteroSimplifiedSchema,
   type_PteroStaffInfoSchema,
@@ -55,10 +58,9 @@ export class pteroServer {
   }
 
   /**
-   * Logic behind creating a ptero
-   *
-   * create a pteros, create an Owner role to that ptero
-   *, add permissions to owner, add owner to ptero staff table
+   * Logic behind creating a ptero:
+   * - create a pteros, create an Owner role to that ptero
+   * - add permissions to owner, add owner to ptero staff table
    *
    * @param userId
    * @param pteroName
@@ -112,9 +114,8 @@ export class pteroServer {
   }
 
   /**
-   * Update a ptero
-   *
-   * Update only if values have changed
+   * Update a ptero:
+   * - Update only if values have changed
    *
    * @param pteroId
    * @param pteroPatchSchema
@@ -171,9 +172,8 @@ export class pteroServer {
     }
   }
   /**
-   * Looks for a ptero by its id
-   *
-   * If returned false means no ptero was found
+   * Looks for a ptero by its id:
+   * - If returned false means no ptero was found
    *
    * @param pteroId
    * @returns schema or false
@@ -221,9 +221,8 @@ export class pteroServer {
     }
   }
   /**
-   * this function should return to what ptero does that invite link cames from
-   *
-   * false means that invite link was not found
+   * This function should return to what ptero does that invite link cames from:
+   * - false means that invite link was not found
    *
    * @param inviteLink
    * @return pteroId or false
@@ -249,7 +248,16 @@ export class pteroServer {
     }
   }
 
-  async checkIfIsOwner(userId: string, pteroId: string) {
+  /**
+   * Check if is owner of that ptero
+   * - False means its not
+   * - True means its the owner
+   *
+   * @param userId
+   * @param pteroId
+   * @returns
+   */
+  async checkIfIsOwner(userId: string, pteroId: string): Promise<boolean> {
     try {
       const user = await db
         .select()
@@ -270,9 +278,8 @@ export class pteroServer {
   }
 
   /**
-   * gets the list of pteros than an user is part of
-   *
-   * False means there is no pteros associated to that user
+   * Gets the list of pteros than an user is part of
+   * - false means there is no pteros associated to that user
    *
    * @param userId
    * @returns Simplified Schema of ptero or False
@@ -329,6 +336,12 @@ export class pteroStaffServer {
     return this._pteroRolesService;
   }
 
+  /**
+   * Add a role id to an user Id
+   * @param userId
+   * @param pteroId
+   * @param roleId
+   */
   async addRoleToUserId(userId: string, pteroId: string, roleId: string) {
     try {
       await db.insert(pterosStaffTable).values({ userId, pteroId, roleId });
@@ -342,9 +355,8 @@ export class pteroStaffServer {
   }
 
   /**
-   * Returns role_id and Role name from userId
-   *
-   * false means user is not a staff member
+   * Returns role_id and role_name from an userId:
+   *  - false means user is not a staff member
    *
    * @param userId
    * @param pteroId
@@ -368,12 +380,12 @@ export class pteroStaffServer {
 
       if (!userRole[0]) return false;
 
-      const roleName = await this.pteroRolesService.getRoleName(
+      const role = await this.pteroRolesService.getRoleByRoleId(
         pteroId,
         userRole[0].roleId,
       );
 
-      if (!roleName) {
+      if (!role) {
         throw new HTTPException(HttpStatus.NOT_FOUND, {
           message: "Role was not found!",
         });
@@ -381,7 +393,7 @@ export class pteroStaffServer {
 
       const info = {
         roleId: userRole[0].roleId,
-        role: roleName,
+        role: role.role,
       };
 
       return pteroStaffInfoSchema.parse(info);
@@ -395,9 +407,8 @@ export class pteroStaffServer {
   }
 
   /**
-   * this method returns the lisf of pteros an user is part of
-   *
-   * false means user is not part of any ptero
+   * This method returns the lisf of pteros an user is part of:
+   * - false means user is not part of any ptero
    *
    * @param userId
    * @returns simplifed ptero schema | false
@@ -433,7 +444,7 @@ export class pteroStaffServer {
   }
 
   /**
-   * Returns a list of
+   * Returns a list of ids of the staff members from an ptero Id
    *
    * @param pteroId
    * @return a list of ids
@@ -449,9 +460,6 @@ export class pteroStaffServer {
         })
         .from(pterosStaffTable)
         .where(eq(pterosStaffTable.pteroId, pteroId));
-
-      console.log("staff members - server");
-      console.log(staffMembers);
 
       return pteroStaffUsersInfoSchema.array().parse(staffMembers);
     } catch (error) {
@@ -473,6 +481,7 @@ export class pterosRolesServer {
         .values({
           pteroId,
           role: "Owner",
+          hierarchy: 1,
         })
         .returning();
 
@@ -493,6 +502,7 @@ export class pterosRolesServer {
         .values({
           pteroId,
           role: "Viewer",
+          hierarchy: 0,
         })
         .returning();
 
@@ -508,19 +518,21 @@ export class pterosRolesServer {
   }
 
   /**
-   * This method only returns a role name
-   *
-   * if returns false it means no role was found
+   * This method reaturns the role:
+   * - false means no role was found
    *
    * @param userId
    * @param pteroId
    * @returns string || false
    *
    */
-  async getRoleName(pteroId: string, roleId: string): Promise<string | false> {
+  async getRoleByRoleId(
+    pteroId: string,
+    roleId: string,
+  ): Promise<type_PteroRolesSchema | false> {
     try {
-      const roleName = await db
-        .select({ role: pterosRolesTable.role })
+      const role = await db
+        .select()
         .from(pterosRolesTable)
         .where(
           and(
@@ -530,22 +542,25 @@ export class pterosRolesServer {
         )
         .limit(1);
 
-      if (!roleName[0]) return false;
+      if (!role[0]) return false;
 
-      return roleName[0].role;
+      return pteroRolesSchema.parse(role[0]);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting Role Name:",
+        consoleErrorText: "Error Getting Role by Role:",
         exceptionErrorMessage: "Error loading user",
       });
     }
   }
 
   /**
-   * Returns roleId or false if role was not found
+   * Returns roleId or false if role was not found:
+   * - false means there are no roles
+   *
    * @param pteroId
    * @param roleName
+   * @returns Array or False
    */
   async getRoleIdFromRoleName(
     pteroId: string,
@@ -574,10 +589,116 @@ export class pterosRolesServer {
       });
     }
   }
+
+  async getAllRolesFromPteroId(
+    pteroId: string,
+  ): Promise<Array<type_PteroRolesSchema>> {
+    try {
+      const roles = await db
+        .select()
+        .from(pterosRolesTable)
+        .where(eq(pterosRolesTable.pteroId, pteroId));
+
+      return pteroRolesSchema.array().parse(roles);
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Getting All Roles From PteroId",
+        exceptionErrorMessage: "Error getting roles! Please try again later",
+      });
+    }
+  }
+
+  /**
+   * this method was with the intention of updating a role hiearchy
+   *
+   * @param pteroId
+   * @param hiearchy -> current number that we want to update
+   * @param move should be "up" or "down"
+   */
+  async updateHierachy(pteroId: string, hiearchy: number, move: string) {
+    const hiearchyChanger = () => {
+      if (move === "up") {
+        return (hiearchy + 1) as number;
+      } else {
+        return (hiearchy - 1) as number;
+      }
+    };
+
+    console.log("Update - HCHANGER");
+    console.log(hiearchyChanger());
+
+    try {
+      const updatedHierachy = await db.update(pterosRolesTable).set({
+        hierarchy: hiearchyChanger(),
+      });
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Updating Hierachy:",
+        exceptionErrorMessage: "Error with role! Please try again later.",
+      });
+    }
+  }
+
+  /**
+   * Create a new role :
+   * - new role are set two on hiearchy *
+   * - if there are only to roles ("viewer and owner") then create role
+   * - if there are more than 2 roles ("owner and viewer") it needs to update all the other roles + 1
+   *
+   * @param pteroId
+   * @param role
+   */
+  async createRole(pteroId: string, role: string) {
+    const currentRoles = await this.getAllRolesFromPteroId(pteroId);
+
+    try {
+      if (currentRoles.length === 1) {
+        await db.insert(pterosRolesTable).values({
+          pteroId,
+          role: "viewer",
+          hierarchy: 0,
+        });
+        await db.insert(pterosRolesTable).values({
+          pteroId,
+          role,
+          hierarchy: 2,
+        });
+      } else {
+        // updates all the other roles to + 1
+        await db
+          .update(pterosRolesTable)
+          .set({ hierarchy: sql`${pterosRolesTable.hierarchy} + 1` })
+          .where(
+            and(
+              eq(pterosRolesTable.pteroId, pteroId),
+              gte(pterosRolesTable.hierarchy, 2),
+            ),
+          );
+
+        await db.insert(pterosRolesTable).values({
+          pteroId,
+          role,
+          hierarchy: 2,
+        });
+      }
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Creating new Role: ",
+        exceptionErrorMessage:
+          "Error trying to create new role! Please try again later.",
+      });
+    }
+  }
 }
 
 export class pterosRolesPermissionsServer {
-  // set all available permission to owner
+  /**
+   * Set all available permissions to owner
+   * @param roleId
+   */
   async setOwnerPermissions(roleId: string) {
     const getAllPermissions = await globalPermissionService.list();
     if (getAllPermissions.length === 0) {
@@ -602,11 +723,9 @@ export class pterosRolesPermissionsServer {
   }
 
   /**
-   * this method checks if a role has an permission
-   *
-   * true means has the permission
-   *
-   * false means that role has not that permission
+   * This method checks if a role has an permission:
+   * - true means has the permission
+   * - false means that role has not that permission
    *
    * @param roleId
    * @param permissionId
@@ -636,6 +755,69 @@ export class pterosRolesPermissionsServer {
         error,
         consoleErrorText: "Error Validating If Role Id Has Permissions Id:",
         exceptionErrorMessage: "Error loading user!",
+      });
+    }
+  }
+
+  async checkIfRoleHasPermissions(roleId: string): Promise<boolean> {
+    try {
+      const role = await db
+        .select()
+        .from(pterosRolesPermissionsTable)
+        .where(eq(pterosRolesPermissionsTable.roleId, roleId));
+
+      if (!role) return false;
+
+      return true;
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Checking If Roles Has Permissions:",
+        exceptionErrorMessage: "Error loading role! Try again later.",
+      });
+    }
+  }
+
+  /**
+   * Sets an list of permission to a roleid
+   * - check if the role has already any permission
+   * - if has then update (set)
+   * - if not then create (insert)
+   * @param roleId
+   * @param listPermissions
+   */
+  async setListOfPermissionsToRole(
+    roleId: string,
+    listPermissions: Array<type_CREATE_PteroRolesPermissionsList>,
+  ) {
+    try {
+      if (listPermissions.length === 0)
+        throw new HTTPException(HttpStatus.BAD_REQUEST, {
+          message: "0 permissions to set!",
+        });
+
+      const checkIfRoleHasPermissions = this.checkIfRoleHasPermissions(roleId);
+      if (!checkIfRoleHasPermissions) {
+        for (let i in listPermissions) {
+          await db
+            .insert(pterosRolesPermissionsTable)
+            .values({ roleId, permissonId: i });
+        }
+      }
+
+      // this needs to be updgrade in a sort of way to validate if permission is already set
+      // --- review requrired
+      for (let i in listPermissions) {
+        await db
+          .update(pterosRolesPermissionsTable)
+          .set({ permissonId: i })
+          .where(eq(pterosRolesPermissionsTable.roleId, roleId));
+      }
+    } catch (error) {
+      catchError({
+        error,
+        consoleErrorText: "Error Setting List of Permissions to Role:",
+        exceptionErrorMessage: "Error updating role! Try again later.",
       });
     }
   }

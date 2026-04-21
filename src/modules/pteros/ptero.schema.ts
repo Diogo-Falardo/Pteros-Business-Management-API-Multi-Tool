@@ -47,6 +47,8 @@ export type type_PteroStaffUserInfoSchema = z.infer<
 export const pteroStaffUserInfoExtendedSchema =
   pteroStaffUsersInfoSchema.extend({
     role: z.string(),
+    email: z.email(),
+    hierarchy: z.number(),
   });
 export type type_pteroStaffUserInfoExtendSchema = z.infer<
   typeof pteroStaffUserInfoExtendedSchema
@@ -73,3 +75,33 @@ export const pteroSimplifiedSchema = pteroSchema.pick({
 });
 
 export type type_PteroSimplifiedSchema = z.infer<typeof pteroSimplifiedSchema>;
+
+export const pteroRolesSchema = z.object({
+  id: z.uuid(),
+  pteroId: z.uuid(),
+  role: z
+    .string()
+    .min(1, { message: "Ptero name is required" })
+    .max(255, { message: "Ptero name has a max of 255 characters" }),
+  hierarchy: z.number(),
+});
+export type type_PteroRolesSchema = z.infer<typeof pteroRolesSchema>;
+
+export const CREATE_PteroRoleSchema = pteroRolesSchema.pick({
+  role: true,
+});
+
+export const pteroRolesPermissionsSchema = z.object({
+  id: z.uuid(),
+  roleId: z.uuid(),
+  permissionId: z.uuid(),
+});
+
+export const CREATE_pteroRolesPermissionsList =
+  pteroRolesPermissionsSchema.pick({
+    roleId: true,
+  });
+
+export type type_CREATE_PteroRolesPermissionsList = z.infer<
+  typeof CREATE_pteroRolesPermissionsList
+>;

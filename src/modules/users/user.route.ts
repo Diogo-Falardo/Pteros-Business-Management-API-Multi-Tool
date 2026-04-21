@@ -152,6 +152,7 @@ userRoutes.get(
     description: `
     Get the email from an user
     `,
+    tags: ["Users"],
     responses: {
       200: {
         description: "User email",

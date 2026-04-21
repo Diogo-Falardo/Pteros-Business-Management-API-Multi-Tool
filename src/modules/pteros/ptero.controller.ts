@@ -1,6 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import { userServer } from "../users/user.server";
 import {
+  type_CREATE_PteroRolesPermissionsList,
   type_CREATE_PteroSchema,
   type_PATCH_PteroSchema,
   type_pteroStaffUserInfoExtendSchema,
@@ -11,39 +12,47 @@ import {
   pteroRolesService,
   pteroStaffService,
 } from "./ptero.services";
-import { validateIfUserHasRequiredPermissions } from "../../core/middlewares/validators";
+import {
+  validateIfUserHasRequiredPermissions,
+  validatePtero,
+} from "../../core/middlewares/validators";
 import { v4 } from "uuid";
-import { check } from "drizzle-orm/gel-core";
 
 const userService = new userServer();
 
-// validate if user exists
-// create an ptero associated to that user
-// make that user ptero Owner
+/**
+ * Create a new ptero
+ * @param userId
+ * @param ptero
+ * @returns
+ */
 export const createPtero = async (
   userId: string,
   ptero: type_CREATE_PteroSchema,
 ) => {
-  const validateUser = await userService.getUserByUserId(userId);
-  if (!validateUser)
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "User not found!",
-    });
+  await validatePtero({
+    userId,
+    checkUserExists: true,
+  });
 
   // this creates and sets ptero owner
   return await pteroService.createPtero(userId, ptero.name);
 };
 
-// validate if user who is requesting the delete is a Valid Owner from Ptero Staff
-// delete ptero
+/**
+ * Delete a ptero:
+ * - Only the owner can delete it
+ * @param userId
+ * @param pteroId
+ * @returns
+ */
 export const deletePtero = async (userId: string, pteroId: string) => {
-  const validateIfPteroExist = await pteroService.getPteroById(pteroId);
-  if (!validateIfPteroExist) {
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "Ptero was not found",
-    });
-  }
+  await validatePtero({
+    pteroId,
+    checkPteroExists: true,
+  });
 
+  // this valdiation is still required because valdiate ptero has not this options
   const validateUser = await pteroStaffService.isUserAStaffMember(
     userId,
     pteroId,
@@ -61,11 +70,10 @@ export const deletePtero = async (userId: string, pteroId: string) => {
   return await pteroService.deletePtero(pteroId);
 };
 
-// update a ptero
-// staff that is going to update the ptero needs to have the required permission for that role
-// to change the owner of the ptero it needs to be the current owner to do it
 /**
- * Updates a ptero schema
+ * Updates a ptero schema:
+ * - Staff that is going to update ptero has to have the required permission for it
+ * - To change the ptero owner it needs to be the current ptero owner for it
  *
  * @param userId -> This user id is from who is sending the update
  * @param patchPteroSchema
@@ -80,17 +88,14 @@ export const updatePtero = async (
   //   "id": "414c142c-76fd-46fd-ba88-8bb2eae01adc",
   //   "permission": "Update Ptero Info"
   // }
-  const checkIfUserHasPermission = await validateIfUserHasRequiredPermissions(
+  await validatePtero({
     userId,
     pteroId,
-    "414c142c-76fd-46fd-ba88-8bb2eae01adc",
-  );
-
-  if (!checkIfUserHasPermission)
-    throw new HTTPException(HttpStatus.FORBIDDEN, {
-      message:
-        "Error user is not a staff member or doesnt have the required permissions",
-    });
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+    checkUserHasPermission: "414c142c-76fd-46fd-ba88-8bb2eae01adc",
+  });
 
   // check if userId that cames on patch is diferent from the owners ptero id
   const getCurrentPteroInfo = await pteroService.getPteroById(pteroId);
@@ -111,6 +116,14 @@ export const updatePtero = async (
 
 // generate an invite link for now in dev state is just simple as generating an UUID unique
 // add that to the ptero table
+/**
+ * Generate an invite link **(for now in dev state simple generate an UUID unique)**
+ * - Adds the invite link to the ptero table
+ * - **Pending validations look inside function**
+ *
+ * @param pteroId
+ * @returns
+ */
 export const generateInviteLink = async (pteroId: string) => {
   const inviteLink = v4();
 
@@ -120,10 +133,14 @@ export const generateInviteLink = async (pteroId: string) => {
   return await pteroService.addInviteLink(pteroId, inviteLink);
 };
 
-// again as we on dev mode still this will be simple as
-// we create a new role if not exists already and add user to that role
-// user will have "viewer" -> role another role that cannot be deleted
-// and has no permissions the role
+/**
+ * Simple because we still on dev mode:
+ * - Create a new role if not exists already ***viewer*** and add user to that role
+ * - has no permissions
+ *
+ * @param userId
+ * @param inviteLink
+ */
 export const useInviteLink = async (userId: string, inviteLink: string) => {
   const pteroId = await pteroService.validateInviteLink(inviteLink);
   if (!pteroId)
@@ -166,14 +183,15 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
   }
 };
 
-// before getting the list
-// validate if the user exists
+/**
+ * @param userId
+ * @returns list of pteros from an user
+ */
 export const pteroListFromAnUser = async (userId: string) => {
-  const validateIfUserExists = await userService.getUserByUserId(userId);
-  if (!validateIfUserExists)
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "User not found!",
-    });
+  await validatePtero({
+    userId,
+    checkUserExists: true,
+  });
 
   const pterosList = await pteroService.listPterosAssociatedToAnUser(userId);
   if (!pterosList) {
@@ -185,15 +203,18 @@ export const pteroListFromAnUser = async (userId: string) => {
   return pterosList;
 };
 
-// get all the staff member from a ptero and their corresponding roles and permissions
-// get all ptero staff and roles
-// for each ptero staff get the user
+/**
+ * Get all the staff members from an ptero and their corresponding roles:
+ * - For each ptero staff get the corresponding user
+ * - **THIS NEEDS A BETTER REVIEW BECAUSE OF NOT HAVING ANY SORT OF SECURITY**
+ * @param pteroId
+ * @returns
+ */
 export const pteroStaffListMembers = async (pteroId: string) => {
-  const validateIfPteroExists = await pteroService.getPteroById(pteroId);
-  if (!validateIfPteroExists)
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "Ptero was not found",
-    });
+  await validatePtero({
+    pteroId,
+    checkPteroExists: true,
+  });
 
   const staffMemberList =
     await pteroStaffService.getTheListOfStaffUserIdsFromAPteroId(pteroId);
@@ -203,17 +224,18 @@ export const pteroStaffListMembers = async (pteroId: string) => {
   // fetch every staff role
   await Promise.all(
     staffMemberList.map(async (s) => {
-      const roleName = await pteroRolesService.getRoleName(pteroId, s.roleId);
-      if (!roleName) return;
+      const role = await pteroRolesService.getRoleByRoleId(pteroId, s.roleId);
+      const userInfo = await userService.getUserByUserId(s.userId);
+      if (!role || !userInfo) return;
       staffList.push({
         userId: s.userId,
         roleId: s.roleId,
-        role: roleName,
+        role: role.role,
+        email: userInfo.email,
+        hierarchy: role.hierarchy,
       });
     }),
   );
-
-  console.log(staffList);
 
   return staffList;
 };
@@ -222,24 +244,53 @@ export const validateIfUserCanAccessPtero = async (
   userId: string,
   pteroId: string,
 ) => {
-  const validateIfUserExists = await userService.getUserByUserId(userId);
-  if (!validateIfUserExists)
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "User not found",
-    });
-
-  const validateIfPteroExists = await pteroService.getPteroById(pteroId);
-  if (!validateIfPteroExists)
-    throw new HTTPException(HttpStatus.NOT_FOUND, {
-      message: "Ptero not found!",
-    });
-
-  const checkIfUserIsPartOfTheStaff =
-    await pteroStaffService.isUserAStaffMember(userId, pteroId);
-  if (!checkIfUserIsPartOfTheStaff)
-    throw new HTTPException(HttpStatus.FORBIDDEN, {
-      message: "Access denied! User is not a staff member!",
-    });
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+  });
 
   return true;
+};
+
+/**
+ * Creates a new Role for that ptero:
+ * - Hiearchy is set to two and updates all the others to +1
+ *
+ * @param userId
+ * @param pteroId
+ * @param role
+ */
+export const createNewPteroRole = async (
+  userId: string,
+  pteroId: string,
+  role: string,
+) => {
+  // permission is
+  //   {
+  //   "id": "eb344a89-e9a1-474c-b242-a414855719c0",
+  //   "permission": "Create New Role"
+  // }
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+    checkUserHasPermission: "eb344a89-e9a1-474c-b242-a414855719c0",
+  });
+
+  await pteroRolesService.createRole(pteroId, role);
+};
+
+// add a list of permissions to a role
+export const addPermissionsToPteroRole = async (
+  userId: string,
+  pteroId: string,
+  roleId: string,
+  listPermissions: Array<type_CREATE_PteroRolesPermissionsList>,
+) => {
+  await validatePtero({});
 };
