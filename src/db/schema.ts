@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar } from "drizzle-orm/pg-core";
+import { integer, pgTable, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id: uuid().defaultRandom().primaryKey(),
@@ -34,6 +34,7 @@ export const pterosRolesTable = pgTable("pteros_Roles", {
     .notNull()
     .references(() => pterosTable.id, { onDelete: "cascade" }),
   role: varchar({ length: 255 }).notNull(),
+  hierarchy: integer().notNull().notNull(),
 });
 
 export const pterosRolesPermissionsTable = pgTable("pteros_Roles_Permissions", {

@@ -29,6 +29,13 @@
       "when": 1776260462409,
       "tag": "0003_wild_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776525896697,
+      "tag": "0004_funny_slyde",
+      "breakpoints": true
     }
   ]
 }

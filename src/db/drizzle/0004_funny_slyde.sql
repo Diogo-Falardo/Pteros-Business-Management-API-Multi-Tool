@@ -1,0 +1,1 @@
+ALTER TABLE "pteros_Roles" ADD COLUMN "hierarchy" integer NOT NULL;
