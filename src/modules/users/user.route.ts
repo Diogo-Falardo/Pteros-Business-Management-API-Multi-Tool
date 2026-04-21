@@ -18,7 +18,6 @@ userRoutes.post(
   describeRoute({
     summary: "Create a new user",
     description: `Creates a new user to ptero database
-    required: Email, Password
     `,
     tags: ["Users", "Authentication"],
     requestBody: {
@@ -62,7 +61,6 @@ userRoutes.delete(
   describeRoute({
     summary: "Delete user",
     description: `Deletes an user by the corresponding user id
-    required: userId
     `,
     tags: ["Users"],
     requestBody: {
@@ -102,9 +100,8 @@ userRoutes.delete(
 userRoutes.post(
   "login",
   describeRoute({
-    summary: "Login an User",
+    summary: "Login user",
     description: `Logins an User and returns the user id
-  required: Email, Password
   `,
     tags: ["Users", "Authentication"],
     requestBody: {

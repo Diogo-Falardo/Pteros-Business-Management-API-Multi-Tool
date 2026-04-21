@@ -2,13 +2,11 @@ import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
 import { HttpStatus } from "../utils/statusCode";
 import {
-  pteroRolesPermissionsService,
-  pteroService,
-  pteroStaffService,
+  use_PteroRolesPermissionsService,
+  use_PteroService,
+  use_PteroStaffService,
 } from "../../modules/pteros/ptero.services";
-import { userServer } from "../../modules/users/user.server";
-
-const userService = new userServer();
+import { use_UserService } from "../../modules/users/user.services";
 
 /**
  * Generic uuid validator
@@ -47,7 +45,8 @@ export async function validateEmail({
     );
   }
 
-  const validateEmail = await userService.validateIfEmailAlreadyExists(email);
+  const validateEmail =
+    await use_UserService.validateIfEmailAlreadyExists(email);
   if (throwErrorIfExist && validateEmail) {
     throw new HTTPException(HttpStatus.FORBIDDEN, {
       message: "Email already in use!",
@@ -86,7 +85,9 @@ export async function validatePtero(options: pteroValidatorOptions) {
   }
 
   if (options.checkUserExists && options.userId) {
-    const validateUserId = await userService.getUserByUserId(options.userId);
+    const validateUserId = await use_UserService.getUserByUserId(
+      options.userId,
+    );
     if (!validateUserId)
       throw new HTTPException(HttpStatus.NOT_FOUND, {
         message: "User not found!",
@@ -94,7 +95,9 @@ export async function validatePtero(options: pteroValidatorOptions) {
   }
 
   if (options.checkPteroExists && options.pteroId) {
-    const validatePteroId = await pteroService.getPteroById(options.pteroId);
+    const validatePteroId = await use_PteroService.getPteroById(
+      options.pteroId,
+    );
     if (!validatePteroId)
       throw new HTTPException(HttpStatus.NOT_FOUND, {
         message: "Ptero not found!",
@@ -102,10 +105,11 @@ export async function validatePtero(options: pteroValidatorOptions) {
   }
 
   if (options.checkUserIsStaff && options.pteroId && options.userId) {
-    const validateIfUserIsStaff = await pteroStaffService.isUserAStaffMember(
-      options.userId,
-      options.pteroId,
-    );
+    const validateIfUserIsStaff =
+      await use_PteroStaffService.isUserAStaffMember(
+        options.userId,
+        options.pteroId,
+      );
     if (!validateIfUserIsStaff)
       throw new HTTPException(HttpStatus.FORBIDDEN, {
         message: "Only staff members have access to this!",
@@ -113,7 +117,7 @@ export async function validatePtero(options: pteroValidatorOptions) {
   }
 
   if (options.checkUserHasPermission && options.userId && options.pteroId) {
-    const doesUserHasPermissions = validateIfUserHasRequiredPermissions(
+    const doesUserHasPermissions = await validateIfUserHasRequiredPermissions(
       options.userId,
       options.pteroId,
       options.checkUserHasPermission,
@@ -143,14 +147,12 @@ export async function validateIfUserHasRequiredPermissions(
   pteroId: string,
   permissionId: string,
 ): Promise<boolean> {
-  const isUserAValidStaffMember = await pteroStaffService.isUserAStaffMember(
-    userId,
-    pteroId,
-  );
+  const isUserAValidStaffMember =
+    await use_PteroStaffService.isUserAStaffMember(userId, pteroId);
   if (!isUserAValidStaffMember) return false;
 
   const doesTheRoleHaveThePermission =
-    await pteroRolesPermissionsService.validateIfRoleIdHasPermissionId(
+    await use_PteroRolesPermissionsService.validateIfRoleIdHasPermissionId(
       isUserAValidStaffMember.roleId,
       permissionId,
     );

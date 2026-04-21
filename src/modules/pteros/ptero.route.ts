@@ -6,9 +6,13 @@ import {
   CREATE_PteroSchema,
   inviteLinkSchema,
   PATCH_PteroSchema,
+  PermissionsListSchema,
+  pteroStaffUsersInfoSchema,
 } from "./ptero.schema";
-import { validateUUID } from "../../core/middlewares/validators";
+import { validatePtero, validateUUID } from "../../core/middlewares/validators";
 import {
+  addPermissionsToPteroRole,
+  addPteroStaffToRole,
   createNewPteroRole,
   createPtero,
   deletePtero,
@@ -27,12 +31,7 @@ pteroRoutes.post(
   describeRoute({
     summary: "Create a new ptero",
     description: `
-        Creates a new ptero inside ptero database
-
-        Ptero is basicly any type of business that requires a multi tool (management) API
-
-        required: UserId, Name (ptero name)
-        
+        Ptero is basicly any type of business that requires a multi tool (management) API       
         `,
     tags: ["Pteros"],
     requestBody: {
@@ -79,12 +78,8 @@ pteroRoutes.delete(
   describeRoute({
     summary: "Delete a ptero",
     description: `
-  Deleting a ptero will delete everything with it
-
-  To delete a ptero is required the Owner Role
-
-  required: UserId, PteroId("Owner" -> role), 
-  
+  Deleting a ptero will delete everything with it.
+  - To delete a ptero is required the Owner Role
   `,
     tags: ["Pteros"],
     responses: {
@@ -119,8 +114,6 @@ pteroRoutes.patch(
     Updates an existing ptero inside the database if who requested has permissions for that
 
     to update the owner of the ptero it needs to be the current owner to do it
-
-    retquired: UserId, PteroId, PatchSchema
     `,
     tags: ["Pteros"],
     requestBody: {
@@ -168,90 +161,6 @@ pteroRoutes.patch(
       ptero,
     );
     return c.json(updatedPtero);
-  },
-);
-
-pteroRoutes.post(
-  "generate-invite-link/:pteroId",
-  describeRoute({
-    summary: "Create an invite link to a ptero",
-    description: `
-    Creates a new invite link to an existing pteros
-
-    Possible bugs ecounter: 
-    -> NOT IMPLEMENTED DO TO NOT BE URGENT
-    - There is NO validation for same uuids or invite links in pteros table
-    - There is no validation if ptero has already an invite link
-    
-    required: PteroId
-    `,
-    tags: ["Pteros"],
-    responses: {
-      200: {
-        description: "Generated invite link",
-      },
-    },
-  }),
-  async (c) => {
-    const { pteroId } = c.req.param();
-    const validatedPteroId = validateUUID(pteroId);
-
-    const generatedInviteLink = await generateInviteLink(validatedPteroId);
-    return c.json({ invite_link: generatedInviteLink });
-  },
-);
-
-pteroRoutes.post(
-  "use-invite-link/:userId",
-  describeRoute({
-    summary: "Use an Invite Link",
-    description: `
-    Uses an Invite Link used by an User trying to join a ptero
-    
-    It sets a new role inside of staff called viewer
-    -> Viewer:
-      -> Does not have any permission is just there to view
-      -> This role cannot be deleted
-
-    `,
-    tags: ["Pteros"],
-    requestBody: {
-      content: {
-        "application/json": {
-          schema: {
-            type: "object",
-            properties: {
-              inviteLink: {
-                type: "string",
-                example: "uuid",
-              },
-            },
-            required: ["inviteLink"],
-          },
-        },
-      },
-      required: true,
-    },
-    responses: {
-      200: {
-        description: "Invite link used",
-      },
-      403: {
-        description: "Cannout join ptero",
-      },
-      404: {
-        description: "Invite link was not found",
-      },
-    },
-  }),
-  sValidator("json", inviteLinkSchema),
-  async (c) => {
-    const { userId } = c.req.param();
-    const valdidateUserId = validateUUID(userId);
-    const { inviteLink } = c.req.valid("json");
-
-    await useInviteLink(valdidateUserId, inviteLink);
-    return c.json("Joined");
   },
 );
 
@@ -349,6 +258,8 @@ pteroRoutes.get(
   },
 );
 
+// roles
+
 pteroRoutes.post(
   "create-role/:userId/:pteroId",
   describeRoute({
@@ -357,10 +268,11 @@ pteroRoutes.post(
     Creates a new role for ptero
     
     Basically creates a new role at the bottom of the hiearchy
-    Updating all other roles to + 1 in hierchy
+    Updating all other roles to + 1 in hierchy:
+    - Except Owner and Viewers
 
     `,
-    tags: ["Pteros"],
+    tags: ["Pteros", "Ptero Roles"],
     requestBody: {
       content: {
         "application/json": {
@@ -386,12 +298,212 @@ pteroRoutes.post(
     const validatedUserId = validateUUID(userId);
     const validatedPteroId = validateUUID(pteroId);
 
-    const newRole = await createNewPteroRole(
+    await createNewPteroRole(validatedUserId, validatedPteroId, role);
+
+    return c.json({ new_role: role });
+  },
+);
+
+pteroRoutes.post(
+  "update-roles-permissions/:userId/:pteroId/:roleId",
+  describeRoute({
+    summary: "Set list of permissions to a role",
+    description: `
+    From a list of permissions updates or deletes permissions:
+  
+    - *userId* is from who is making the request
+
+    - Adds if there is no permissions to roles.
+    - If there are permissions:
+      1. Add new permissions
+      2. Remove permissions that were disabled
+    `,
+    tags: ["Pteros", "Ptero Roles"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                permissionId: { type: "string", format: "uuid" },
+              },
+              required: ["permissionsId"],
+            },
+          },
+          example: [
+            {
+              permissionId: "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
+            },
+            {
+              permissionId: "d1384f1a-af16-4a40-b55f-08abcab784bb",
+            },
+          ],
+        },
+      },
+      required: true,
+    },
+  }),
+  sValidator("json", PermissionsListSchema),
+  async (c) => {
+    const { userId, pteroId, roleId } = c.req.param();
+    const permissions = c.req.valid("json");
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+    const validatedRoleId = validateUUID(roleId);
+
+    await addPermissionsToPteroRole(
       validatedUserId,
       validatedPteroId,
-      role,
+      validatedRoleId,
+      permissions,
     );
 
-    return c.json(newRole);
+    return c.json("Permissions Updated");
+  },
+);
+
+pteroRoutes.post(
+  "set-new-staff-member/:userId/:pteroId",
+  describeRoute({
+    summary: "Add new staff member",
+    description: `
+    Adds a new staff member to a ptero
+    
+    `,
+    tags: ["Pteros", "Ptero Roles"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              userId: {
+                type: "string",
+                example: "uuid",
+                description: "The id of the new staff member",
+              },
+              roleId: {
+                type: "string",
+                example: "uuid",
+              },
+            },
+            required: ["userId", "roleId"],
+          },
+        },
+      },
+      required: true,
+    },
+    responses: {
+      200: {
+        description: "User was set as staff member",
+      },
+      403: {
+        description: "User is not part of your staff members list",
+      },
+    },
+  }),
+  sValidator("json", pteroStaffUsersInfoSchema),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const { userId: newStaffMemberId, roleId } = c.req.valid("json");
+    const valdiatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    const payload = {
+      userId: newStaffMemberId,
+      roleId,
+    };
+
+    return c.json(
+      await addPteroStaffToRole(valdiatedUserId, validatedPteroId, payload),
+    );
+  },
+);
+
+// invite links
+
+pteroRoutes.post(
+  "generate-invite-link/:pteroId",
+  describeRoute({
+    summary: "Create an invite link to a ptero",
+    description: `
+    Creates a new invite link to an existing pteros
+
+    Possible bugs ecounter: 
+    - NOT IMPLEMENTED DO TO NOT BE URGENT
+    - There is NO validation for same uuids or invite links in pteros table
+    - There is no validation if ptero has already an invite link
+    
+    required: PteroId
+    `,
+    tags: ["Pteros", "Pteros Invite"],
+    responses: {
+      200: {
+        description: "Generated invite link",
+      },
+    },
+  }),
+  async (c) => {
+    const { pteroId } = c.req.param();
+    const validatedPteroId = validateUUID(pteroId);
+
+    const generatedInviteLink = await generateInviteLink(validatedPteroId);
+    return c.json({ invite_link: generatedInviteLink });
+  },
+);
+
+pteroRoutes.post(
+  "use-invite-link/:userId",
+  describeRoute({
+    summary: "Use an Invite Link",
+    description: `
+    Uses an Invite Link used by an User trying to join a ptero
+    
+    It sets a new role inside of staff called viewer
+    - Viewer:
+      - Does not have any permission is just there to view
+      - This role cannot be deleted
+
+    `,
+    tags: ["Pteros", "Pteros Invite"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              inviteLink: {
+                type: "string",
+                example: "uuid",
+              },
+            },
+            required: ["inviteLink"],
+          },
+        },
+      },
+      required: true,
+    },
+    responses: {
+      200: {
+        description: "Invite link used",
+      },
+      403: {
+        description: "Cannout join ptero",
+      },
+      404: {
+        description: "Invite link was not found",
+      },
+    },
+  }),
+  sValidator("json", inviteLinkSchema),
+  async (c) => {
+    const { userId } = c.req.param();
+    const valdidateUserId = validateUUID(userId);
+    const { inviteLink } = c.req.valid("json");
+
+    await useInviteLink(valdidateUserId, inviteLink);
+    return c.json("Joined");
   },
 );

@@ -7,10 +7,9 @@ import { eq } from "drizzle-orm";
 import { type_UserSchema } from "./user.schema";
 import { catchError } from "../../core/middlewares/error";
 
-export class userServer {
+export class userService {
   async createUser(email: string, password: string) {
     const encryptedPassword = await argon2.hash(password);
-
     try {
       const [user] = await db
         .insert(usersTable)

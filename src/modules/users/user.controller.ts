@@ -1,22 +1,20 @@
 import { HTTPException } from "hono/http-exception";
 import { type_CREATE_UserSchema } from "./user.schema";
-import { userServer } from "./user.server";
 import { HttpStatus } from "../../core/utils/statusCode";
 import { validateEmail } from "../../core/middlewares/validators";
-
-const UserService = new userServer();
+import { use_UserService } from "./user.services";
 
 export const createUser = async (user: type_CREATE_UserSchema) => {
   await validateEmail({ email: user.email, throwErrorIfExist: true });
-  return await UserService.createUser(user.email, user.password);
+  return await use_UserService.createUser(user.email, user.password);
 };
 
 export const deleteUser = async (userId: string) => {
-  return await UserService.deleteUser(userId);
+  return await use_UserService.deleteUser(userId);
 };
 
 /**
- * - Validat if email exists
+ * - Validate if email exists
  * - compare passwords
  * @param email
  * @param password
@@ -24,11 +22,11 @@ export const deleteUser = async (userId: string) => {
  */
 export const loginUser = async (email: string, password: string) => {
   await validateEmail({ email, throwErrorIfNotExist: true });
-  return await UserService.authentication(email, password);
+  return await use_UserService.authentication(email, password);
 };
 
 export const getUserInfo = async (userId: string) => {
-  const user = await UserService.getUserByUserId(userId);
+  const user = await use_UserService.getUserByUserId(userId);
   if (!user)
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "User not found!",

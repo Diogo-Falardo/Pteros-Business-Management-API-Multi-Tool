@@ -1,24 +1,21 @@
 import { HTTPException } from "hono/http-exception";
-import { userServer } from "../users/user.server";
 import {
   type_CREATE_PteroRolesPermissionsList,
   type_CREATE_PteroSchema,
   type_PATCH_PteroSchema,
   type_pteroStaffUserInfoExtendSchema,
+  type_PteroStaffUserInfoSchema,
 } from "./ptero.schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import {
-  pteroService,
-  pteroRolesService,
-  pteroStaffService,
+  use_PteroService,
+  use_PteroRolesService,
+  use_PteroStaffService,
+  use_PteroRolesPermissionsService,
 } from "./ptero.services";
-import {
-  validateIfUserHasRequiredPermissions,
-  validatePtero,
-} from "../../core/middlewares/validators";
+import { validatePtero } from "../../core/middlewares/validators";
 import { v4 } from "uuid";
-
-const userService = new userServer();
+import { use_UserService } from "../users/user.services";
 
 /**
  * Create a new ptero
@@ -36,7 +33,7 @@ export const createPtero = async (
   });
 
   // this creates and sets ptero owner
-  return await pteroService.createPtero(userId, ptero.name);
+  return await use_PteroService.createPtero(userId, ptero.name);
 };
 
 /**
@@ -53,7 +50,7 @@ export const deletePtero = async (userId: string, pteroId: string) => {
   });
 
   // this valdiation is still required because valdiate ptero has not this options
-  const validateUser = await pteroStaffService.isUserAStaffMember(
+  const validateUser = await use_PteroStaffService.isUserAStaffMember(
     userId,
     pteroId,
   );
@@ -67,7 +64,7 @@ export const deletePtero = async (userId: string, pteroId: string) => {
     });
   }
 
-  return await pteroService.deletePtero(pteroId);
+  return await use_PteroService.deletePtero(pteroId);
 };
 
 /**
@@ -98,7 +95,7 @@ export const updatePtero = async (
   });
 
   // check if userId that cames on patch is diferent from the owners ptero id
-  const getCurrentPteroInfo = await pteroService.getPteroById(pteroId);
+  const getCurrentPteroInfo = await use_PteroService.getPteroById(pteroId);
   console.log("getCurrentPteroInfo " + getCurrentPteroInfo);
   if (!getCurrentPteroInfo)
     throw new HTTPException(HttpStatus.NOT_FOUND, {
@@ -111,7 +108,7 @@ export const updatePtero = async (
     });
   }
 
-  return await pteroService.updatePtero(pteroId, patchPteroSchema);
+  return await use_PteroService.updatePtero(pteroId, patchPteroSchema);
 };
 
 // generate an invite link for now in dev state is just simple as generating an UUID unique
@@ -130,7 +127,7 @@ export const generateInviteLink = async (pteroId: string) => {
   // CAREFULL
   // we are passing the invite link without validating if does not colide with any existing one
   // the chances are really low but it can happen so -> just dont be lazy as me now and add it
-  return await pteroService.addInviteLink(pteroId, inviteLink);
+  return await use_PteroService.addInviteLink(pteroId, inviteLink);
 };
 
 /**
@@ -142,14 +139,17 @@ export const generateInviteLink = async (pteroId: string) => {
  * @param inviteLink
  */
 export const useInviteLink = async (userId: string, inviteLink: string) => {
-  const pteroId = await pteroService.validateInviteLink(inviteLink);
+  const pteroId = await use_PteroService.validateInviteLink(inviteLink);
   if (!pteroId)
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "Invite link was not found!",
     });
 
   // check if the owner is not trying to use the invite link
-  const checkIfIsOwner = await pteroService.checkIfIsOwner(userId, pteroId);
+  const checkIfIsOwner = await use_PteroService.checkIfIsPteroOwner(
+    userId,
+    pteroId,
+  );
   if (checkIfIsOwner)
     throw new HTTPException(HttpStatus.FORBIDDEN, {
       message: "You cant join your own server!",
@@ -157,20 +157,18 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
 
   // check if there is already a view role
   // this if first try to get View Role Id from that ptero
-  const roleId = await pteroRolesService.getRoleIdFromRoleName(
+  const roleId = await use_PteroRolesService.getRoleIdFromRoleName(
     pteroId,
     "Viewer",
   );
 
   if (!roleId) {
-    const newRoleId = await pteroRolesService.createRoleViewer(pteroId);
-    await pteroStaffService.addRoleToUserId(userId, pteroId, newRoleId);
+    const newRoleId = await use_PteroRolesService.createRoleViewer(pteroId);
+    await use_PteroStaffService.addRoleToUserId(userId, pteroId, newRoleId);
   } else {
     // check if user is not already part of that ptero
-    const validateIfUserIsInPtero = await pteroStaffService.isUserAStaffMember(
-      userId,
-      pteroId,
-    );
+    const validateIfUserIsInPtero =
+      await use_PteroStaffService.isUserAStaffMember(userId, pteroId);
 
     if (validateIfUserIsInPtero) {
       console.log(validateIfUserIsInPtero);
@@ -179,7 +177,7 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
       });
     }
 
-    await pteroStaffService.addRoleToUserId(userId, pteroId, roleId);
+    await use_PteroStaffService.addRoleToUserId(userId, pteroId, roleId);
   }
 };
 
@@ -193,7 +191,8 @@ export const pteroListFromAnUser = async (userId: string) => {
     checkUserExists: true,
   });
 
-  const pterosList = await pteroService.listPterosAssociatedToAnUser(userId);
+  const pterosList =
+    await use_PteroService.listPterosAssociatedToAnUser(userId);
   if (!pterosList) {
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "No pteros found associated to you",
@@ -217,15 +216,18 @@ export const pteroStaffListMembers = async (pteroId: string) => {
   });
 
   const staffMemberList =
-    await pteroStaffService.getTheListOfStaffUserIdsFromAPteroId(pteroId);
+    await use_PteroStaffService.getTheListOfStaffUserIdsFromAPteroId(pteroId);
 
   let staffList: Array<type_pteroStaffUserInfoExtendSchema> = [];
 
   // fetch every staff role
   await Promise.all(
     staffMemberList.map(async (s) => {
-      const role = await pteroRolesService.getRoleByRoleId(pteroId, s.roleId);
-      const userInfo = await userService.getUserByUserId(s.userId);
+      const role = await use_PteroRolesService.getRoleByRoleId(
+        pteroId,
+        s.roleId,
+      );
+      const userInfo = await use_UserService.getUserByUserId(s.userId);
       if (!role || !userInfo) return;
       staffList.push({
         userId: s.userId,
@@ -282,15 +284,82 @@ export const createNewPteroRole = async (
     checkUserHasPermission: "eb344a89-e9a1-474c-b242-a414855719c0",
   });
 
-  await pteroRolesService.createRole(pteroId, role);
+  await use_PteroRolesService.createRole(pteroId, role);
 };
 
-// add a list of permissions to a role
+/**
+ * Adds or Removes Permission from a list of permission to a ptero role.
+ *
+ * @param userId
+ * @param pteroId
+ * @param roleId
+ * @param listPermissions
+ */
 export const addPermissionsToPteroRole = async (
   userId: string,
   pteroId: string,
   roleId: string,
   listPermissions: Array<type_CREATE_PteroRolesPermissionsList>,
 ) => {
-  await validatePtero({});
+  //   {
+  //   "id": "2286190c-15f5-48ea-b3f6-414df1ab4ff4",
+  //   "permission": "Update Roles Permissions"
+  // }
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+    checkUserHasPermission: "2286190c-15f5-48ea-b3f6-414df1ab4ff4",
+  });
+
+  await use_PteroRolesPermissionsService.setListOfPermissionsToRole(
+    roleId,
+    listPermissions,
+  );
+};
+
+/**
+ * Adds a ptero staff member to a specific role
+ *
+ *
+ * @param userId user that makes the request
+ * @param pteroId
+ * @param staff user that is going to became a "staff member" and its role role
+ */
+export const addPteroStaffToRole = async (
+  userId: string,
+  pteroId: string,
+  staff: type_PteroStaffUserInfoSchema,
+) => {
+  //   {
+  //   "id": "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
+  //   "permission": "Add Ptero Staff Members"
+  // },
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+    checkUserHasPermission: "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
+  });
+
+  // validate if the user that is going to be inserted as new staff member is already in staff
+  const validateIfUserIsInStaff =
+    await use_PteroStaffService.isUserAStaffMember(staff.userId, pteroId);
+  if (!validateIfUserIsInStaff) {
+    throw new HTTPException(HttpStatus.FORBIDDEN, {
+      message: "User is not in you staff list!",
+    });
+  }
+
+  await use_PteroStaffService.updateRoleToUserId(
+    staff.userId,
+    pteroId,
+    staff.roleId,
+  );
+
+  return "Staff member list updated!";
 };

@@ -1,7 +1,7 @@
+import { HTTPException } from "hono/http-exception";
 import { type_admin_CREATE_Permission } from "./admin.schemas";
-import { permissionsServer } from "./global.server";
-
-const permissionsService = new permissionsServer();
+import { use_GlobalPermissionsService } from "./global.services";
+import { HttpStatus } from "../utils/statusCode";
 
 /**
  * Validate if there is already a permission with that name:
@@ -15,9 +15,15 @@ export const adminCreatePermission = async (
   permission: type_admin_CREATE_Permission,
 ) => {
   const validatePermissionName =
-    await permissionsService.validateIfPermissionAlreadyExists(
+    await use_GlobalPermissionsService.validateIfPermissionAlreadyExists(
       permission.permission,
     );
 
-  return await permissionsService.create(permission.permission);
+  if (!validatePermissionName) {
+    throw new HTTPException(HttpStatus.CONFLICT, {
+      message: "Permission already inserted!",
+    });
+  }
+
+  return await use_GlobalPermissionsService.create(permission.permission);
 };

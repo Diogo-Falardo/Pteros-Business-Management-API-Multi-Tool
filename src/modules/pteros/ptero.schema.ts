@@ -18,6 +18,12 @@ export const CREATE_PteroSchema = pteroSchema.pick({
 
 export type type_CREATE_PteroSchema = z.infer<typeof CREATE_PteroSchema>;
 
+/**
+ *
+ * PTERO STAFF SCHEMA TABLE
+ *
+ */
+
 export const pteroStaffSchema = z.object({
   id: z.uuid(),
   pteroId: z.uuid(),
@@ -36,6 +42,7 @@ export const pteroStaffInfoSchema = pteroStaffSchema
 export type type_PteroStaffInfoSchema = z.infer<typeof pteroStaffInfoSchema>;
 
 // this schema was created for the list of users from a ptero sfaff members
+// beeing used in the creation of a new staff member
 export const pteroStaffUsersInfoSchema = pteroStaffSchema.pick({
   userId: true,
   roleId: true,
@@ -76,6 +83,11 @@ export const pteroSimplifiedSchema = pteroSchema.pick({
 
 export type type_PteroSimplifiedSchema = z.infer<typeof pteroSimplifiedSchema>;
 
+/**
+ *
+ * PTERO ROLES SCHEMA TABLE
+ *
+ */
 export const pteroRolesSchema = z.object({
   id: z.uuid(),
   pteroId: z.uuid(),
@@ -91,17 +103,38 @@ export const CREATE_PteroRoleSchema = pteroRolesSchema.pick({
   role: true,
 });
 
+/**
+ *
+ * PTERO ROLES PERMISSIONS SCHEMA TABLE
+ *
+ */
+
 export const pteroRolesPermissionsSchema = z.object({
   id: z.uuid(),
   roleId: z.uuid(),
   permissionId: z.uuid(),
 });
 
+export type type_PteroRolesPermissionsSchema = z.infer<
+  typeof pteroRolesPermissionsSchema
+>;
+
 export const CREATE_pteroRolesPermissionsList =
   pteroRolesPermissionsSchema.pick({
-    roleId: true,
+    permissionId: true,
   });
 
 export type type_CREATE_PteroRolesPermissionsList = z.infer<
   typeof CREATE_pteroRolesPermissionsList
 >;
+
+export const PATCH_PteroRolesPermissionsList =
+  CREATE_pteroRolesPermissionsList.partial();
+
+export type type_PATCH_PteroRolesPermissionsList = z.infer<
+  typeof PATCH_PteroRolesPermissionsList
+>;
+
+export const PermissionsListSchema = z.array(
+  z.object({ permissionId: z.uuid() }),
+);

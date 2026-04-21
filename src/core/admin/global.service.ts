@@ -1,13 +1,16 @@
-import { HTTPException } from "hono/http-exception";
-import { HttpStatus } from "../utils/statusCode";
 import { db } from "../../db/db.index";
 import { permissionsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { permissionSchema, type_PermissionSchema } from "./global.schema";
 import { catchError } from "../middlewares/error";
 
-// ptero app dev adminstrator
-export class permissionsServer {
+// ptero app dev adminstrator service
+export class globalPermissionsService {
+  /**
+   * This creates a new permission globally.
+   * @param permission name: string
+   * @returns permission
+   */
   async create(permission: string) {
     try {
       const newPermission = await db
@@ -17,7 +20,9 @@ export class permissionsServer {
         })
         .returning();
 
-      return permission;
+      console.log(newPermission);
+
+      return newPermission[0];
     } catch (error) {
       catchError({
         error,
@@ -28,7 +33,7 @@ export class permissionsServer {
     }
   }
 
-  async list(): Promise<Array<type_PermissionSchema>> {
+  async getListOfPermissions(): Promise<Array<type_PermissionSchema>> {
     try {
       const permissions = await db.select().from(permissionsTable);
 
@@ -47,7 +52,7 @@ export class permissionsServer {
    * Validate if a permission already exists:
    * - by the permission name check if the permission is already inserted
    * - true means exists
-   * - false means can be created
+   * - false means can be created or doesnt exist
    *
    * @param permission
    * @returns boolean
