@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { logger as honoLogger } from "hono/logger";
 import { cors } from "hono/cors";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler, describeRoute } from "hono-openapi";
@@ -7,11 +8,18 @@ import { userRoutes } from "./modules/users/user.route";
 import { HTTPException } from "hono/http-exception";
 import { pteroRoutes } from "./modules/pteros/ptero.route";
 import { adminRoutes } from "./core/admin/global.route";
+import { log } from "./core/middlewares/logger";
 
 const app = new Hono();
 
 // free for everyone to access because this is not production
-app.use("*", cors());
+app.use(
+  "*",
+  honoLogger((str, c) => {
+    log.info(str);
+  }),
+  cors(),
+);
 
 app.route("/v1", healthRoutes);
 app.route("/admin/", adminRoutes);

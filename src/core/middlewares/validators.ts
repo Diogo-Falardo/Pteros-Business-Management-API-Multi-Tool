@@ -7,6 +7,7 @@ import {
   use_PteroStaffService,
 } from "../../modules/pteros/ptero.services";
 import { use_UserService } from "../../modules/users/user.services";
+import { log } from "./logger";
 
 /**
  * Generic uuid validator
@@ -78,6 +79,7 @@ type pteroValidatorOptions = {
  * @param options
  */
 export async function validatePtero(options: pteroValidatorOptions) {
+  log.info(`now validating ptero`);
   if (!options.userId && !options.pteroId) {
     throw Error(
       "pteroValidator: Hey developer you need at least an userId or a pteroId to use this validator",
@@ -85,44 +87,55 @@ export async function validatePtero(options: pteroValidatorOptions) {
   }
 
   if (options.checkUserExists && options.userId) {
+    log.info(`validating if user exists`);
     const validateUserId = await use_UserService.getUserByUserId(
       options.userId,
     );
-    if (!validateUserId)
+    if (!validateUserId) {
+      log.error(`user not found`);
       throw new HTTPException(HttpStatus.NOT_FOUND, {
         message: "User not found!",
       });
+    }
   }
 
   if (options.checkPteroExists && options.pteroId) {
+    log.info(`validating if ptero exists`);
     const validatePteroId = await use_PteroService.getPteroById(
       options.pteroId,
     );
-    if (!validatePteroId)
+    if (!validatePteroId) {
+      log.error(`ptero not found`);
       throw new HTTPException(HttpStatus.NOT_FOUND, {
         message: "Ptero not found!",
       });
+    }
   }
 
   if (options.checkUserIsStaff && options.pteroId && options.userId) {
+    log.info(`validating if user is staff member`);
     const validateIfUserIsStaff =
       await use_PteroStaffService.isUserAStaffMember(
         options.userId,
         options.pteroId,
       );
-    if (!validateIfUserIsStaff)
+    if (!validateIfUserIsStaff) {
+      log.error(`user is not a staff member`);
       throw new HTTPException(HttpStatus.FORBIDDEN, {
         message: "Only staff members have access to this!",
       });
+    }
   }
 
   if (options.checkUserHasPermission && options.userId && options.pteroId) {
+    log.info(`validating if user is staff member has permissions`);
     const doesUserHasPermissions = await validateIfUserHasRequiredPermissions(
       options.userId,
       options.pteroId,
       options.checkUserHasPermission,
     );
     if (!doesUserHasPermissions) {
+      log.error(`doesnt have the required permissions`);
       throw new HTTPException(HttpStatus.FORBIDDEN, {
         message:
           "Error user is not a staff member or doesnt have the required permissions",

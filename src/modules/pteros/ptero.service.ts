@@ -26,6 +26,7 @@ import {
   type_PteroStaffUserInfoSchema,
 } from "./ptero.schema";
 import { catchError } from "../../core/middlewares/error";
+import { log } from "../../core/middlewares/logger";
 
 export class pteroService {
   private _pteroStaffService?: pteroStaffService;
@@ -681,6 +682,15 @@ export class pterosRolesService {
   async createRole(pteroId: string, role: string) {
     const currentRoles = await this.getAllRolesFromPteroId(pteroId);
 
+    for (let role of currentRoles) {
+      if (role.role === role.role) {
+        log.error(`Error role already exists!`);
+        throw new HTTPException(HttpStatus.FORBIDDEN, {
+          message: "Error role already exists!",
+        });
+      }
+    }
+
     try {
       if (currentRoles.length === 1) {
         await db.insert(pterosRolesTable).values({
@@ -711,6 +721,7 @@ export class pterosRolesService {
           hierarchy: 2,
         });
       }
+      log.info(`role created, ${JSON.stringify({ pteroId, role })}`);
     } catch (error) {
       catchError({
         error,

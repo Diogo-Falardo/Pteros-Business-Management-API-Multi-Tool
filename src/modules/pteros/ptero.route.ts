@@ -17,15 +17,18 @@ import {
   createPtero,
   deletePtero,
   generateInviteLink,
+  getPteroRolesList,
   pteroListFromAnUser,
   pteroStaffListMembers,
   updatePtero,
   useInviteLink,
   validateIfUserCanAccessPtero,
 } from "./ptero.controller";
+import { log } from "../../core/middlewares/logger";
 
 export const pteroRoutes = new Hono().basePath("/ptero");
 
+// CRUD
 pteroRoutes.post(
   "create/:userId",
   describeRoute({
@@ -33,7 +36,7 @@ pteroRoutes.post(
     description: `
         Ptero is basicly any type of business that requires a multi tool (management) API       
         `,
-    tags: ["Pteros"],
+    tags: ["Pteros", "Pteros CRUD"],
     requestBody: {
       content: {
         "application/json": {
@@ -81,7 +84,7 @@ pteroRoutes.delete(
   Deleting a ptero will delete everything with it.
   - To delete a ptero is required the Owner Role
   `,
-    tags: ["Pteros"],
+    tags: ["Pteros", "Pteros CRUD"],
     responses: {
       200: {
         description: "Ptero deleted",
@@ -115,7 +118,7 @@ pteroRoutes.patch(
 
     to update the owner of the ptero it needs to be the current owner to do it
     `,
-    tags: ["Pteros"],
+    tags: ["Pteros", "Pteros CRUD"],
     requestBody: {
       content: {
         "application/json": {
@@ -167,10 +170,9 @@ pteroRoutes.patch(
 pteroRoutes.get(
   "list/:userId",
   describeRoute({
-    summary: "Get the list of pteros from an user",
+    summary: "Get list pteros from User",
     description: `
-    Return the list of pteros associated to that user
-    
+    - Return the list of pteros associated to that user
     `,
     tags: ["Pteros", "Users"],
     responses: {
@@ -196,13 +198,11 @@ pteroRoutes.get(
   describeRoute({
     summary: "Get the list of pteros staff from an ptero id",
     description: `
-    Returns the list of staff members from a ptero
-
-    If there is a ptero its impossible to return an empty array because
-    an owner is a staff member
-    
+    - Returns the list of staff members from a ptero  
+    *If there is a ptero its impossible to return an empty array because
+    an owner is a staff member*
     `,
-    tags: ["Pteros"],
+    tags: ["Pteros", "Pteros Staff"],
     responses: {
       200: {
         description: "Ptero staff list",
@@ -225,11 +225,10 @@ pteroRoutes.get(
 pteroRoutes.get(
   "allowed/:userId/:pteroId",
   describeRoute({
-    summary: "Check if user is allowed to access ptero",
+    summary: "Check user allowed access ptero",
     description: `
-    Checks if the user that is trying to access this ptero is valid staff member 
-
-    if its in staff list it can access otherwise it cannot
+    - Checks if the user that is trying to access this ptero is valid staff member 
+    -if its in staff list it can access **otherwise it cannot**
 
     `,
     tags: ["Pteros", "Users"],
@@ -265,14 +264,13 @@ pteroRoutes.post(
   describeRoute({
     summary: "Create a new role for ptero",
     description: `
-    Creates a new role for ptero
-    
-    Basically creates a new role at the bottom of the hiearchy
+    Creates a new staff role     
+    - Basically creates a new role at the bottom of the hiearchy
     Updating all other roles to + 1 in hierchy:
-    - Except Owner and Viewers
+    Except Owner and Viewers
 
     `,
-    tags: ["Pteros", "Ptero Roles"],
+    tags: ["Pteros", "Ptero Staff Roles"],
     requestBody: {
       content: {
         "application/json": {
@@ -290,6 +288,14 @@ pteroRoutes.post(
       },
       required: true,
     },
+    responses: {
+      200: {
+        description: "Role created",
+      },
+      403: {
+        description: "Role already exists",
+      },
+    },
   }),
   sValidator("json", CREATE_PteroRoleSchema),
   async (c) => {
@@ -297,6 +303,8 @@ pteroRoutes.post(
     const { role } = c.req.valid("json");
     const validatedUserId = validateUUID(userId);
     const validatedPteroId = validateUUID(pteroId);
+
+    log.info(`received: ${JSON.stringify({ userId, pteroId, role })}`);
 
     await createNewPteroRole(validatedUserId, validatedPteroId, role);
 
@@ -505,5 +513,32 @@ pteroRoutes.post(
 
     await useInviteLink(valdidateUserId, inviteLink);
     return c.json("Joined");
+  },
+);
+
+pteroRoutes.get(
+  "roles/:userId/:pteroId",
+  describeRoute({
+    summary: "Get the list of roles from a ptero",
+    description: `
+    returns the list of pteros:
+    - Only works if user is part of the ptero staff table
+    `,
+    tags: ["Pteros", "Ptero Roles"],
+    responses: {
+      200: {
+        description: "list of roles",
+      },
+      403: {
+        description: "User is not part of your staff members list",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const valdiatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    return c.json(await getPteroRolesList(valdiatedUserId, validatedPteroId));
   },
 );

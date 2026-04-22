@@ -16,6 +16,8 @@ import {
 import { validatePtero } from "../../core/middlewares/validators";
 import { v4 } from "uuid";
 import { use_UserService } from "../users/user.services";
+import { json } from "drizzle-orm/gel-core";
+import { log } from "../../core/middlewares/logger";
 
 /**
  * Create a new ptero
@@ -275,6 +277,7 @@ export const createNewPteroRole = async (
   //   "id": "eb344a89-e9a1-474c-b242-a414855719c0",
   //   "permission": "Create New Role"
   // }
+  log.info(`received ${JSON.stringify({ userId, pteroId, role })}`);
   await validatePtero({
     userId,
     pteroId,
@@ -362,4 +365,23 @@ export const addPteroStaffToRole = async (
   );
 
   return "Staff member list updated!";
+};
+
+/**
+ * Gets the role list from an pteroId
+ *
+ * @param userId
+ * @param pteroId
+ * @returns
+ */
+export const getPteroRolesList = async (userId: string, pteroId: string) => {
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+  });
+
+  return await use_PteroRolesService.getAllRolesFromPteroId(pteroId);
 };
