@@ -3,6 +3,7 @@ import { type_CREATE_UserSchema } from "./user.schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import { validateEmail } from "../../core/middlewares/validators";
 import { use_UserService } from "./user.services";
+import { log } from "../../core/middlewares/logger";
 
 export const createUser = async (user: type_CREATE_UserSchema) => {
   await validateEmail({ email: user.email, throwErrorIfExist: true });
@@ -27,10 +28,14 @@ export const loginUser = async (email: string, password: string) => {
 
 export const getUserInfo = async (userId: string) => {
   const user = await use_UserService.getUserByUserId(userId);
-  if (!user)
+  if (!user) {
+    log.error(
+      `Error trying to fetch user: ${userId} was not found in the database`,
+    );
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "User not found!",
     });
+  }
 
   return user.email;
 };

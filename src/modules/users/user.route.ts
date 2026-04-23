@@ -10,6 +10,7 @@ import {
   loginUser,
 } from "./user.controller";
 import { validateUUID } from "../../core/middlewares/validators";
+import { log } from "../../core/middlewares/logger";
 
 export const userRoutes = new Hono().basePath("/user");
 
@@ -17,9 +18,11 @@ userRoutes.post(
   "create",
   describeRoute({
     summary: "Create a new user",
-    description: `Creates a new user to ptero database
+    description: `Creates a new user
+  - Password is encrypted using **argon2** 
+
     `,
-    tags: ["Users", "Authentication"],
+    tags: ["User", "Authentication"],
     requestBody: {
       content: {
         "application/json": {
@@ -52,6 +55,9 @@ userRoutes.post(
   async (c) => {
     const user = c.req.valid("json");
     const result = await createUser(user);
+
+    log.info(`Creating user: ${user}`);
+
     return c.json(result, 201);
   },
 );
@@ -60,9 +66,9 @@ userRoutes.delete(
   "delete",
   describeRoute({
     summary: "Delete user",
-    description: `Deletes an user by the corresponding user id
+    description: `- Deletes an user **by the corresponding user id**
     `,
-    tags: ["Users"],
+    tags: ["User"],
     requestBody: {
       content: {
         "application/json": {
@@ -88,9 +94,11 @@ userRoutes.delete(
   sValidator("json", z.object({ userId: z.string() })),
   async (c) => {
     const id = c.req.valid("json");
-    const validatedId = validateUUID(id.userId);
+    const validatedUserId = validateUUID(id.userId);
 
-    const result = await deleteUser(validatedId);
+    log.info(`Deleting user: ${validatedUserId}`);
+
+    const result = await deleteUser(validatedUserId);
     return c.json({
       deleted_user: result,
     });
@@ -101,9 +109,8 @@ userRoutes.post(
   "login",
   describeRoute({
     summary: "Login user",
-    description: `Logins an User and returns the user id
-  `,
-    tags: ["Users", "Authentication"],
+    description: `- Logins an User and **returns the user id**`,
+    tags: ["User", "Authentication"],
     requestBody: {
       content: {
         "application/json": {
@@ -138,6 +145,8 @@ userRoutes.post(
   sValidator("json", LoginSchema),
   async (c) => {
     const { email, password } = c.req.valid("json");
+
+    log.info(`Authentication start for: ${email}`);
     return c.json({ userId: await loginUser(email, password) });
   },
 );
@@ -147,9 +156,9 @@ userRoutes.get(
   describeRoute({
     summary: "Get user info",
     description: `
-    Get the email from an user
+  - Returns the **email** from an user
     `,
-    tags: ["Users"],
+    tags: ["User", "User - Info"],
     responses: {
       200: {
         description: "User email",
@@ -163,6 +172,7 @@ userRoutes.get(
     const { userId } = c.req.param();
     const validatedUserId = validateUUID(userId);
 
+    log.info(`Inicitaing fetching of user: ${userId}`);
     return c.json({ user_email: await getUserInfo(validatedUserId) });
   },
 );

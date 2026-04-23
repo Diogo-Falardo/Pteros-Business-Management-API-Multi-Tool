@@ -6,6 +6,7 @@ import { HttpStatus } from "../../core/utils/statusCode";
 import { eq } from "drizzle-orm";
 import { type_UserSchema } from "./user.schema";
 import { catchError } from "../../core/middlewares/error";
+import { log } from "../../core/middlewares/logger";
 
 export class userService {
   async createUser(email: string, password: string) {
@@ -19,11 +20,12 @@ export class userService {
         })
         .returning();
 
+      log.info(`User created: ${JSON.stringify({ user })}`);
       return user;
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Creating User:",
+        logError: `Error creating user: ${email}`,
         exceptionErrorMessage: "Ups something went wrong while creating user!",
       });
     }
@@ -33,11 +35,13 @@ export class userService {
     try {
       await db.delete(usersTable).where(eq(usersTable.id, userId));
 
-      return "User Deleted";
+      log.info(`User deleted: ${JSON.stringify({ userId })}`);
+
+      return "User deleted: " + userId;
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Deleting User:",
+        logError: `Error deleting user: ${userId}`,
         exceptionErrorMessage: "Ups something went wrong while deleting user!",
       });
     }
@@ -53,16 +57,21 @@ export class userService {
   async authentication(email: string, password: string): Promise<string> {
     try {
       const user = await this.getUserByEmail(email);
-      if (!user)
+      if (!user) {
+        log.error(`Authentication for email failed ${email} doesnt exist.`);
         throw new HTTPException(HttpStatus.NOT_FOUND, {
           message: "Email not found!",
         });
+      }
 
       const currentUserPassword = user.password;
 
       if (await argon2.verify(currentUserPassword, password)) {
         return user.id;
       } else {
+        log.error(
+          `Access Denied! Wrong Password for user: ${JSON.stringify({ email })}`,
+        );
         throw new HTTPException(HttpStatus.FORBIDDEN, {
           message: "Access Denied! Wrong Password!",
         });
@@ -70,7 +79,7 @@ export class userService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Authenticating User",
+        logError: "Error Authenticating User",
         exceptionErrorMessage: "Ups loggin failed!",
       });
     }
@@ -93,11 +102,12 @@ export class userService {
 
       if (!user[0]) return false;
 
+      log.info(`User by id got fetched: ${JSON.stringify({ user })}`);
       return user[0];
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting User By User Id:",
+        logError: "Error Getting User By User Id:",
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -120,11 +130,12 @@ export class userService {
 
       if (!user[0]) return false;
 
+      log.info(`User by email got fetched: ${JSON.stringify({ user })}`);
       return user[0];
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting User By Email:",
+        logError: `Error Getting User By Email: ${email}`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -145,12 +156,13 @@ export class userService {
         .from(usersTable)
         .where(eq(usersTable.email, email));
 
+      log.info(`Email exists: ${JSON.stringify({ user })}`);
       if (user[0]) return true;
       else return false;
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Validating If Email Already Exists:",
+        logError: `Error validating ${email} email if exists`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
