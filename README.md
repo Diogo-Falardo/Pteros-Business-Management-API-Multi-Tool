@@ -1,82 +1,61 @@
 # Pteros — Business Management API Multi‑Tool
 
 Pteros is a modular API designed to manage any type of business entity (“pteros”).  
-A ptero can be a store, manufacturer, organization, workspace, or any structure that needs a unified management layer.
+A ptero can represent a store, manufacturer, organization, workspace, or any structure that requires a unified management layer.
 
-The goal is simple: provide a clean, scalable backend foundation for user management, inventory, operations, and internal tooling.
+The primary goal is to provide a clean, scalable backend foundation for user management, inventory, operations, and internal tooling.
+
+---
+
+## Technical Design
+
+The API is structured for clarity and scalability, minimizing unnecessary endpoints and complexity.
+
+- Built on the Bun runtime for high performance and low latency.
+- Utilizes Hono, a lightweight and fast web application framework.
+- Employs PostgreSQL as the database, with connections managed via Drizzle ORM (migration-first approach).
+- Implements LogLayer for consistent logging throughout the application.
+
+---
 
 ## Core Concepts
 
 ### Pteros
 
 A “ptero” represents a business unit.  
-Each ptero can have:
+Each ptero can include:
 
-- users
-- roles
-- inventory
-- operations
-- custom modules
+- Users
+- Roles
+- Inventory
+- Operations
+- Custom modules
 
-The system is flexible enough to support different business models without rewriting the backend.
+The system is flexible enough to support various business models without requiring backend rewrites.
 
-### API‑First
-
-##### **Api is fully documentend using Scalar and OpenApi**
+### API‑First Approach
 
 Pteros exposes a consistent API for:
 
-- authentication & user management: **(not yet implemented)**
-  - My Recommendation to the day we implement:
-    1. Use Clerk or 0Auth: **why?**
-       - fast and easy
-    2. Create our own authentication method using **jwt**
-- role & permission control
-- inventory management
-- business operations
-- custom extensions
+- Authentication & user management
+- Role & permission control
+- Inventory management
+- Business operations
+- Custom extensions
 
-## Tech Stack
+---
 
-- **Bun** — runtime
-- **Hono** — API framework
-- **Drizzle ORM** — schema & migrations
-- **PostgreSQL** — database
+## Current Version
 
-## Status
+**v1.0**
 
-Early development.  
-Schema, migrations, and core API structure are being defined.
+This version introduces three core middlewares for error handling, logging, and validation.
 
-### Middlewares
+### Key Features
 
-#### Error
+- Users can create and update pteros.
+- Users can invite others to join a ptero.
+- Users and staff members can add or remove members from the staff list.
+- Staff members can create, delete, and update roles and their permissions.
 
-- **CatchError** Middleware is mainly used to catch try catch errors inside server methods.
-
-#### Validators
-
-- Generic Validators.
-- **validatePtero** Middleware is used to validate any sort of ptero before executing server methods.
-
-### User Management
-
-#### Database Shema for user management
-
-![alt text](/documentation_files/image.png)
-
-#### New roles logic
-
-##### There are two base roles: Owner and Viewer
-
-1. Owner has all permissions - hiearchy of 1
-2. Viewer has zero permissions - hiearchy of 0
-
-Other roles created by ptero owners or staff members
-Will **always start on two** and after it user can swith positions with another role
-
-- Owner and viewer will never change
-
-## License
-
-MIT
+---
