@@ -1,11 +1,4 @@
 import { HTTPException } from "hono/http-exception";
-import {
-  type_CREATE_PteroRolesPermissionsList,
-  type_CREATE_PteroSchema,
-  type_PATCH_PteroSchema,
-  type_pteroStaffUserInfoExtendSchema,
-  type_PteroStaffUserInfoSchema,
-} from "./ptero.schema";
 import { HttpStatus } from "../../core/utils/statusCode";
 import {
   use_PteroService,
@@ -16,8 +9,14 @@ import {
 import { validatePtero } from "../../core/middlewares/validators";
 import { v4 } from "uuid";
 import { use_UserService } from "../users/user.services";
-import { json } from "drizzle-orm/gel-core";
 import { log } from "../../core/middlewares/logger";
+import {
+  type_CREATE_PteroRolesPermissionsList,
+  type_CREATE_PteroSchema,
+  type_PATCH_PteroSchema,
+  type_PteroStaffMembersIdSchema,
+  type_PteroStaffMembersInfoSchema,
+} from "./ptero.schema";
 
 /**
  * Create a new ptero
@@ -56,11 +55,18 @@ export const deletePtero = async (userId: string, pteroId: string) => {
     userId,
     pteroId,
   );
-  if (!validateUser)
+  if (!validateUser) {
+    log.error(
+      `Requested user ${JSON.stringify({ userId })} is not a staff member from ptero: ${JSON.stringify({ pteroId })}`,
+    );
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "User not found or user is not a staff member!",
     });
+  }
   if (validateUser.role !== "Owner") {
+    log.error(
+      `Requested user ${JSON.stringify({ userId })} is not the owner of this ptero: ${JSON.stringify({ pteroId })}`,
+    );
     throw new HTTPException(HttpStatus.FORBIDDEN, {
       message: "Invalid permissions!",
     });
@@ -98,13 +104,22 @@ export const updatePtero = async (
 
   // check if userId that cames on patch is diferent from the owners ptero id
   const getCurrentPteroInfo = await use_PteroService.getPteroById(pteroId);
-  console.log("getCurrentPteroInfo " + getCurrentPteroInfo);
-  if (!getCurrentPteroInfo)
+
+  log.info(
+    `Getting current ptero info: ${JSON.stringify({ getCurrentPteroInfo })} to check if the userId that camed: ${patchPteroSchema.userId} to be patched is the owner id`,
+  );
+
+  if (!getCurrentPteroInfo) {
+    log.error(`The current ptero was not found!`);
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "Ptero was not found!",
     });
+  }
 
   if (patchPteroSchema.userId && userId !== getCurrentPteroInfo.userId) {
+    log.error(
+      `User cannot change the ownership of ptero because its not the owner of it`,
+    );
     throw new HTTPException(HttpStatus.FORBIDDEN, {
       message: "Only ptero owner can change ownership",
     });
@@ -142,29 +157,35 @@ export const generateInviteLink = async (pteroId: string) => {
  */
 export const useInviteLink = async (userId: string, inviteLink: string) => {
   const pteroId = await use_PteroService.validateInviteLink(inviteLink);
-  if (!pteroId)
+  if (!pteroId) {
+    log.error(`Invite link was not found: ${inviteLink}`);
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "Invite link was not found!",
     });
+  }
 
   // check if the owner is not trying to use the invite link
   const checkIfIsOwner = await use_PteroService.checkIfIsPteroOwner(
     userId,
     pteroId,
   );
-  if (checkIfIsOwner)
+  if (checkIfIsOwner) {
+    log.error(`Owner cannot join its own ptero!`);
     throw new HTTPException(HttpStatus.FORBIDDEN, {
-      message: "You cant join your own server!",
+      message: "You cant join your own ptero!",
     });
+  }
 
   // check if there is already a view role
   // this if first try to get View Role Id from that ptero
+  console.log(`Looking for role viewer`);
   const roleId = await use_PteroRolesService.getRoleIdFromRoleName(
     pteroId,
     "Viewer",
   );
 
   if (!roleId) {
+    console.log(`Role viewer was not found creating a viewer role`);
     const newRoleId = await use_PteroRolesService.createRoleViewer(pteroId);
     await use_PteroStaffService.addRoleToUserId(userId, pteroId, newRoleId);
   } else {
@@ -173,7 +194,7 @@ export const useInviteLink = async (userId: string, inviteLink: string) => {
       await use_PteroStaffService.isUserAStaffMember(userId, pteroId);
 
     if (validateIfUserIsInPtero) {
-      console.log(validateIfUserIsInPtero);
+      log.info(`user: ${userId} is already part of the ptero`);
       throw new HTTPException(HttpStatus.FORBIDDEN, {
         message: "You are already part of this ptero!",
       });
@@ -196,6 +217,7 @@ export const pteroListFromAnUser = async (userId: string) => {
   const pterosList =
     await use_PteroService.listPterosAssociatedToAnUser(userId);
   if (!pterosList) {
+    log.error(`No pteros was found associated to user: ${userId}`);
     throw new HTTPException(HttpStatus.NOT_FOUND, {
       message: "No pteros found associated to you",
     });
@@ -220,7 +242,7 @@ export const pteroStaffListMembers = async (pteroId: string) => {
   const staffMemberList =
     await use_PteroStaffService.getTheListOfStaffUserIdsFromAPteroId(pteroId);
 
-  let staffList: Array<type_pteroStaffUserInfoExtendSchema> = [];
+  let staffList: Array<type_PteroStaffMembersInfoSchema> = [];
 
   // fetch every staff role
   await Promise.all(
@@ -334,7 +356,7 @@ export const addPermissionsToPteroRole = async (
 export const addPteroStaffToRole = async (
   userId: string,
   pteroId: string,
-  staff: type_PteroStaffUserInfoSchema,
+  staff: type_PteroStaffMembersIdSchema,
 ) => {
   //   {
   //   "id": "8005995a-7cc0-4afc-b531-c48ff97d6bbb",

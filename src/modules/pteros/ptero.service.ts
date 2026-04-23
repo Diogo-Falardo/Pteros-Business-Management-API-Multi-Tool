@@ -7,23 +7,23 @@ import {
   pterosStaffTable,
   pterosTable,
 } from "../../db/schema";
-import { use_GlobalPermissionsService } from "../../core/admin/global.services";
+import { use_GlobalPermissionsService } from "../../core/admin/admin.services";
 import { and, eq, gte, sql } from "drizzle-orm";
 import {
   pteroRolesPermissionsSchema,
   pteroRolesSchema,
   pteroSchema,
-  pteroSimplifiedSchema,
   pteroStaffInfoSchema,
-  pteroStaffUsersInfoSchema,
+  pteroStaffMembersIdSchema,
+  SAFE_PteroSchema,
   type_CREATE_PteroRolesPermissionsList,
   type_PATCH_PteroSchema,
   type_PteroRolesPermissionsSchema,
   type_PteroRolesSchema,
   type_PteroSchema,
-  type_PteroSimplifiedSchema,
   type_PteroStaffInfoSchema,
-  type_PteroStaffUserInfoSchema,
+  type_PteroStaffMembersIdSchema,
+  type_SAFE_PteroSchema,
 } from "./ptero.schema";
 import { catchError } from "../../core/middlewares/error";
 import { log } from "../../core/middlewares/logger";
@@ -92,11 +92,13 @@ export class pteroService {
         ownerRoleId,
       );
 
+      log.info(`New ptero created`);
       return newPtero;
     } catch (error) {
+      log.error(`error creating ptero: ${error}`);
       catchError({
         error,
-        consoleErrorText: "Error Creating a Ptero:",
+        logError: `Error Creating a Ptero: ${pteroName} for user: ${userId}`,
         exceptionErrorMessage: "Error creating ptero!",
       });
     }
@@ -105,10 +107,11 @@ export class pteroService {
   async deletePtero(pteroId: string) {
     try {
       await db.delete(pterosTable).where(eq(pterosTable.id, pteroId));
+      log.info(`Ptero deleted.`);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Deleting Ptero:",
+        logError: `Error Deleting Ptero: ${pteroId}`,
         exceptionErrorMessage: "Error deleting ptero!",
       });
     }
@@ -166,7 +169,7 @@ export class pteroService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Updating Ptero:",
+        logError: `Error Updating Ptero: ${pteroId}`,
         exceptionErrorMessage: "Error updating ptero!",
       });
     }
@@ -192,7 +195,7 @@ export class pteroService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting Ptero:",
+        logError: `Error getting  ptero: ${pteroId}`,
         exceptionErrorMessage: "Error loading ptero!",
       });
     }
@@ -221,7 +224,7 @@ export class pteroService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Checking If User Is Owner:",
+        logError: `Error cheking if user: ${userId} is owner of ptero: ${pteroId}`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -244,6 +247,7 @@ export class pteroService {
       if (!pteros) return false;
 
       // find if user is staff of any pteros
+      log.info(`looking for pteros of the user: ${userId}`);
       const pterosUserIsStaff =
         await this.pteroStaffService.getListOfPterosUserIsStaff(userId);
 
@@ -255,11 +259,11 @@ export class pteroService {
       const uniquePteros = pterosList.filter(
         (p, i, s) => i === s.findIndex((t) => t.id === p.id),
       );
-      return pteroSimplifiedSchema.array().parse(uniquePteros);
+      return SAFE_PteroSchema.array().parse(uniquePteros);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Listing Pteros Associated To An User:",
+        logError: `Error listing ptero associated to user: ${userId}`,
         exceptionErrorMessage: "Error loading pteros",
       });
     }
@@ -278,11 +282,12 @@ export class pteroService {
 
       if (!generatedInviteLink[0].inviteLink) return false;
 
+      log.info(`New invite link generated: ${generatedInviteLink}`);
       return generatedInviteLink[0].inviteLink;
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Adding Invite Link:",
+        logError: `Error adding invite link to ptero ${pteroId}`,
         exceptionErrorMessage: "Error creating invite link!",
       });
     }
@@ -295,6 +300,7 @@ export class pteroService {
    * @return pteroId or false
    */
   async validateInviteLink(inviteLink: string): Promise<string | false> {
+    log.info(`Validating invite link: ${inviteLink}`);
     try {
       const ptero = await db
         .select()
@@ -308,7 +314,7 @@ export class pteroService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Validating Invite Link:",
+        logError: "Error Validating Invite Link:",
         exceptionErrorMessage:
           "Error using invite link! Please try again later!",
       });
@@ -345,10 +351,11 @@ export class pteroStaffService {
   async addRoleToUserId(userId: string, pteroId: string, roleId: string) {
     try {
       await db.insert(pterosStaffTable).values({ userId, pteroId, roleId });
+      log.info(`Added role: ${roleId} to user: ${userId} in ptero: ${pteroId}`);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Adding Role to User Id in Ptero Staff:",
+        logError: `Error adding role: ${roleId} to user: ${userId} in ptero: ${pteroId}`,
         exceptionErrorMessage: "Error in ptero!",
       });
     }
@@ -373,10 +380,14 @@ export class pteroStaffService {
             eq(pterosStaffTable.pteroId, pteroId),
           ),
         );
+
+      log.info(
+        `Updated role: ${roleId} to user: ${userId} in ptero: ${pteroId}`,
+      );
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Updating Role To UserId:",
+        logError: `Error updating role: ${roleId} to user: ${userId} in ptero: ${pteroId}`,
         exceptionErrorMessage:
           "Error updating staff member! Please try again later.",
       });
@@ -415,6 +426,7 @@ export class pteroStaffService {
       );
 
       if (!role) {
+        log.error(`Role: ${role} was not found in ptero ${pteroId}`);
         throw new HTTPException(HttpStatus.NOT_FOUND, {
           message: "Role was not found!",
         });
@@ -425,11 +437,12 @@ export class pteroStaffService {
         role: role.role,
       };
 
+      log.info(`User is a staff member`);
       return pteroStaffInfoSchema.parse(info);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Validating If User Is A Staff Member:",
+        logError: `Error knowing if user: ${userId} is a staff member off ${pteroId}`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -444,7 +457,7 @@ export class pteroStaffService {
    */
   async getListOfPterosUserIsStaff(
     userId: string,
-  ): Promise<Array<type_PteroSimplifiedSchema> | false> {
+  ): Promise<Array<type_SAFE_PteroSchema> | false> {
     try {
       const pteros = await db
         .select({ pteroId: pterosStaffTable.pteroId })
@@ -454,6 +467,7 @@ export class pteroStaffService {
       if (!pteros) return false;
 
       // for every ptero that user is part of get the ptero info
+      log.info(`fetching every ptero that user: ${userId} is staff`);
       const pterosUserIsStaffOf = await Promise.all(
         pteros.map(async (p) => {
           return await this.pteroService.getPteroById(p.pteroId);
@@ -462,11 +476,11 @@ export class pteroStaffService {
 
       if (!pterosUserIsStaffOf) return false;
 
-      return pteroSimplifiedSchema.array().parse(pterosUserIsStaffOf);
+      return SAFE_PteroSchema.array().parse(pterosUserIsStaffOf);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Listing Pteros That an User is Staff off:",
+        logError: `Error listing pteros that ${userId} is Staff off`,
         exceptionErrorMessage: "Error loading pteros!",
       });
     }
@@ -480,7 +494,10 @@ export class pteroStaffService {
    */
   async getTheListOfStaffUserIdsFromAPteroId(
     pteroId: string,
-  ): Promise<Array<type_PteroStaffUserInfoSchema>> {
+  ): Promise<Array<type_PteroStaffMembersIdSchema>> {
+    log.info(
+      `Getting the list of ids for the staff members in ptero: ${pteroId}`,
+    );
     try {
       const staffMembers = await db
         .select({
@@ -490,12 +507,11 @@ export class pteroStaffService {
         .from(pterosStaffTable)
         .where(eq(pterosStaffTable.pteroId, pteroId));
 
-      return pteroStaffUsersInfoSchema.array().parse(staffMembers);
+      return pteroStaffMembersIdSchema.array().parse(staffMembers);
     } catch (error) {
       catchError({
         error,
-        consoleErrorText:
-          "Error Getting The List Of Staff User Ids From A Ptero Id:",
+        logError: `Getting the list of ids for the staff members in ptero: ${pteroId}`,
         exceptionErrorMessage: "Error loading staff members!",
       });
     }
@@ -504,6 +520,7 @@ export class pteroStaffService {
 
 export class pterosRolesService {
   async createRoleOwner(pteroId: string) {
+    log.info(`Creating role owner for ptero: ${pteroId}`);
     try {
       const ownerRoleId = await db
         .insert(pterosRolesTable)
@@ -518,13 +535,14 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Creating Role Owner:",
+        logError: `Error creating role owner for ptero: ${pteroId}`,
         exceptionErrorMessage: "Error creating ptero!",
       });
     }
   }
 
   async createRoleViewer(pteroId: string) {
+    log.info(`Creating role viewer for ptero: ${pteroId}`);
     try {
       const viewerRoleId = await db
         .insert(pterosRolesTable)
@@ -539,7 +557,7 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Creating Role Viewer:",
+        logError: `Error creating role owner for ptero: ${pteroId}`,
         exceptionErrorMessage:
           "Error using invite link! Please try again later!",
       });
@@ -559,6 +577,7 @@ export class pterosRolesService {
     pteroId: string,
     roleId: string,
   ): Promise<type_PteroRolesSchema | false> {
+    log.info(`Getting role ${roleId} in ptero ${pteroId}`);
     try {
       const role = await db
         .select()
@@ -577,7 +596,7 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting Role by Role:",
+        logError: `Error getting role: ${roleId}`,
         exceptionErrorMessage: "Error loading user",
       });
     }
@@ -613,7 +632,7 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting Role Id From Role Name:",
+        logError: `Error getting role from ptero: ${pteroId}, role name: ${roleName} .`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -632,7 +651,7 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Getting All Roles From PteroId",
+        logError: `Error getting all roles from ptero: ${pteroId}`,
         exceptionErrorMessage: "Error getting roles! Please try again later",
       });
     }
@@ -725,7 +744,7 @@ export class pterosRolesService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Creating new Role: ",
+        logError: `Error creating new role: ${role} for ptero: ${pteroId}`,
         exceptionErrorMessage:
           "Error trying to create new role! Please try again later.",
       });
@@ -756,7 +775,7 @@ export class pterosRolesPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Setting Owner Permissions:",
+        logError: `Error setting owner permissions.`,
         exceptionErrorMessage: "Error creating ptero!",
       });
     }
@@ -793,7 +812,7 @@ export class pterosRolesPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Validating If Role Id Has Permissions Id:",
+        logError: `Error validating if ${roleId} has permission: ${permissionId}`,
         exceptionErrorMessage: "Error loading user!",
       });
     }
@@ -820,7 +839,7 @@ export class pterosRolesPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Checking If Roles Has Permissions:",
+        logError: `Error checking if role: ${roleId} has permissions.`,
         exceptionErrorMessage: "Error loading role! Try again later.",
       });
     }
@@ -894,7 +913,7 @@ export class pterosRolesPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error Setting List of Permissions to Role:",
+        logError: `Error upserting/removing list of permissions to role: ${roleId}`,
         exceptionErrorMessage: "Error updating role! Try again later.",
       });
     }

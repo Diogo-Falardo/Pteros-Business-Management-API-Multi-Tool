@@ -1,10 +1,11 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { HTTPException } from "hono/http-exception";
 import { HttpStatus } from "../utils/statusCode";
+import { log } from "./logger";
 
 type catchedError = {
   error: any;
-  consoleErrorText?: string;
+  logError?: string;
   exceptionStatus?: HttpStatus;
   exceptionErrorMessage?: string;
   extra?: Record<string, any>;
@@ -12,7 +13,7 @@ type catchedError = {
 
 export function catchError({
   error,
-  consoleErrorText = "An error occurred: ",
+  logError = "An error occurred: ",
   exceptionStatus = HttpStatus.INTERNAL_SERVER_ERROR,
   exceptionErrorMessage = "Internal Server Error",
   extra = {},
@@ -20,7 +21,7 @@ export function catchError({
   if (error instanceof HTTPException) {
     throw error;
   }
-  console.error(`${consoleErrorText} ${error}`);
+  log.error(`${logError}, Error: ${error}`);
   throw new HTTPException(exceptionStatus as ContentfulStatusCode, {
     message: exceptionErrorMessage,
     ...extra,

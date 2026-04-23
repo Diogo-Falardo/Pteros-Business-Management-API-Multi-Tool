@@ -1,4 +1,4 @@
-import { uuid, z } from "zod";
+import { z } from "zod";
 
 export const pteroSchema = z.object({
   id: z.uuid(),
@@ -17,6 +17,24 @@ export const CREATE_PteroSchema = pteroSchema.pick({
 });
 
 export type type_CREATE_PteroSchema = z.infer<typeof CREATE_PteroSchema>;
+
+export const PATCH_PteroSchema = CREATE_PteroSchema.extend({
+  userId: z.uuid(),
+}).partial();
+export type type_PATCH_PteroSchema = z.infer<typeof PATCH_PteroSchema>;
+
+export const inviteLinkSchema = z.object({
+  inviteLink: z.uuid(),
+});
+
+// we are doing this schema to dont show more than pteroId and Name
+// we are thinking in this way just to prevent others to get the invite link
+export const SAFE_PteroSchema = pteroSchema.pick({
+  id: true,
+  name: true,
+});
+
+export type type_SAFE_PteroSchema = z.infer<typeof SAFE_PteroSchema>;
 
 /**
  *
@@ -43,45 +61,22 @@ export type type_PteroStaffInfoSchema = z.infer<typeof pteroStaffInfoSchema>;
 
 // this schema was created for the list of users from a ptero sfaff members
 // beeing used in the creation of a new staff member
-export const pteroStaffUsersInfoSchema = pteroStaffSchema.pick({
+export const pteroStaffMembersIdSchema = pteroStaffSchema.pick({
   userId: true,
   roleId: true,
 });
-export type type_PteroStaffUserInfoSchema = z.infer<
-  typeof pteroStaffUsersInfoSchema
+export type type_PteroStaffMembersIdSchema = z.infer<
+  typeof pteroStaffMembersIdSchema
 >;
 
-export const pteroStaffUserInfoExtendedSchema =
-  pteroStaffUsersInfoSchema.extend({
-    role: z.string(),
-    email: z.email(),
-    hierarchy: z.number(),
-  });
-export type type_pteroStaffUserInfoExtendSchema = z.infer<
-  typeof pteroStaffUserInfoExtendedSchema
+export const pteroStaffMemberInfoSchema = pteroStaffMembersIdSchema.extend({
+  role: z.string(),
+  email: z.email(),
+  hierarchy: z.number(),
+});
+export type type_PteroStaffMembersInfoSchema = z.infer<
+  typeof pteroStaffMemberInfoSchema
 >;
-
-export const PATCH_PteroSchema = pteroSchema
-  .pick({
-    userId: true,
-    name: true,
-  })
-  .partial();
-
-export type type_PATCH_PteroSchema = z.infer<typeof PATCH_PteroSchema>;
-
-export const inviteLinkSchema = z.object({
-  inviteLink: z.uuid(),
-});
-
-// we are doing this schema to dont show more than pteroId and Name
-// we are thinking in this way just to prevent others to get the invite link
-export const pteroSimplifiedSchema = pteroSchema.pick({
-  id: true,
-  name: true,
-});
-
-export type type_PteroSimplifiedSchema = z.infer<typeof pteroSimplifiedSchema>;
 
 /**
  *

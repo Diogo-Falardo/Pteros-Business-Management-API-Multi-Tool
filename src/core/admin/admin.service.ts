@@ -1,8 +1,9 @@
 import { db } from "../../db/db.index";
 import { permissionsTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { permissionSchema, type_PermissionSchema } from "./global.schema";
+import { permissionSchema, type_PermissionSchema } from "./admin.schema";
 import { catchError } from "../middlewares/error";
+import { log } from "../middlewares/logger";
 
 // ptero app dev adminstrator service
 export class globalPermissionsService {
@@ -20,13 +21,13 @@ export class globalPermissionsService {
         })
         .returning();
 
-      console.log(newPermission);
+      log.info(`Created new permission: ${permission}`);
 
       return newPermission[0];
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error creating permission:",
+        logError: `Error creating permission: ${permission}`,
         exceptionErrorMessage:
           "Ups something went wrong while creating permission!",
       });
@@ -41,7 +42,7 @@ export class globalPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error listing permissions:",
+        logError: "Error listing permissions!",
         exceptionErrorMessage:
           "Ups something went wrong while getting permissions list!",
       });
@@ -66,6 +67,7 @@ export class globalPermissionsService {
         .limit(1);
 
       if (existingPermission[0]) {
+        log.error(`Error permission already exists!`);
         return false;
       }
 
@@ -73,7 +75,7 @@ export class globalPermissionsService {
     } catch (error) {
       catchError({
         error,
-        consoleErrorText: "Error validating if permission already exists:",
+        logError: `Error validating if permission already exists: ${permission}`,
         exceptionErrorMessage:
           "Ups something went wrong while validating permission!",
       });

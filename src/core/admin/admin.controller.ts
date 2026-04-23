@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
-import { type_admin_CREATE_Permission } from "./admin.schemas";
-import { use_GlobalPermissionsService } from "./global.services";
+import { type_admin_CREATE_Permission } from "./admin.schema";
+import { use_GlobalPermissionsService } from "./admin.services";
 import { HttpStatus } from "../utils/statusCode";
 
 /**

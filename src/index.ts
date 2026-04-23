@@ -7,8 +7,8 @@ import { healthRoutes } from "./modules/health/health.routes";
 import { userRoutes } from "./modules/users/user.route";
 import { HTTPException } from "hono/http-exception";
 import { pteroRoutes } from "./modules/pteros/ptero.route";
-import { adminRoutes } from "./core/admin/global.route";
 import { log } from "./core/middlewares/logger";
+import { adminRoutes } from "./core/admin/admin.route";
 
 const app = new Hono();
 
