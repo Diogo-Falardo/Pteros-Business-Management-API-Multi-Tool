@@ -17,6 +17,8 @@ import {
   createPtero,
   deletePtero,
   generateInviteLink,
+  getPteroRolePermissionList,
+  // getPteroRolePermissionList,
   getPteroRolesList,
   pteroListFromAnUser,
   pteroStaffListMembers,
@@ -205,36 +207,7 @@ pteroRoutes.get(
   },
 );
 
-pteroRoutes.get(
-  "list-of-staffs/:pteroId",
-  describeRoute({
-    summary: "Get the list of staff members from an ptero id",
-    description: `
-  - Returns the list of staff members from a ptero  
-  *If **there is a ptero** its impossible to return an empty array because
-  an **owner is a staff** member*
-    `,
-    tags: ["Ptero", "Ptero - Staff"],
-    responses: {
-      200: {
-        description: "Ptero staff list",
-      },
-      404: {
-        description: "Ptero not found",
-      },
-    },
-  }),
-  async (c) => {
-    const { pteroId } = c.req.param();
-    const validatedPteroId = validateUUID(pteroId);
-
-    log.info(`Getting the list of staff members of ptero: ${validatedPteroId}`);
-
-    const staffList = await pteroStaffListMembers(validatedPteroId);
-
-    return c.json({ ptero_staff_list: staffList });
-  },
-);
+// ptero valdiations
 
 pteroRoutes.get(
   "allowed/:userId/:pteroId",
@@ -245,7 +218,7 @@ pteroRoutes.get(
   - If its in staff list it can access **otherwise it cannot**
 
     `,
-    tags: ["Ptero", "User - Info"],
+    tags: ["Ptero", "Ptero - Validations"],
     responses: {
       200: {
         description: "Returns true : user can access",
@@ -275,124 +248,44 @@ pteroRoutes.get(
   },
 );
 
-// roles
+// Ptero Staff Management
+// Here you will find the routes/endpoints that make the management of ptero users possible
 
-pteroRoutes.post(
-  "create-role/:userId/:pteroId",
+/**
+ * This routes are mainly to controll over the staff system around every ptero
+ * Every staff member present on the staff list with any role can view the respective members and its role
+ */
+
+pteroRoutes.get(
+  "list-of-staffs/:pteroId",
   describeRoute({
-    summary: "Create a new role for ptero",
+    summary: "Get the list of staff members",
     description: `
-  Creates a new staff role     
-  - *Basically creates a new role at the bottom of the hiearchy*
-  - **Updating all other roles to + 1 in hierchy**
-  - **Except Owner and Viewers**
+  - Returns the list of staff members from a ptero  
+  *If **there is a ptero** its impossible to return an empty array because
+  an **owner is a staff** member*
 
+  Can be used by everyone in the ptero staff list
     `,
-    tags: ["Ptero", "Ptero - Staff - Roles"],
-    requestBody: {
-      content: {
-        "application/json": {
-          schema: {
-            type: "object",
-            properties: {
-              role: {
-                type: "string",
-                example: "Staff Manager",
-              },
-            },
-            required: ["role"],
-          },
-        },
-      },
-      required: true,
-    },
+    tags: ["Ptero", "Ptero - Staff - Management"],
     responses: {
       200: {
-        description: "Role created",
+        description: "Ptero staff list",
       },
-      403: {
-        description: "Role already exists",
+      404: {
+        description: "Ptero not found",
       },
     },
   }),
-  sValidator("json", CREATE_PteroRoleSchema),
   async (c) => {
-    const { userId, pteroId } = c.req.param();
-    const { role } = c.req.valid("json");
-    const validatedUserId = validateUUID(userId);
+    const { pteroId } = c.req.param();
     const validatedPteroId = validateUUID(pteroId);
 
-    log.info(
-      `Creating new ptero role: ${JSON.stringify({ userId, pteroId, role })}`,
-    );
+    log.info(`Getting the list of staff members of ptero: ${validatedPteroId}`);
 
-    await createNewPteroRole(validatedUserId, validatedPteroId, role);
+    const staffList = await pteroStaffListMembers(validatedPteroId);
 
-    return c.json({ new_role: role });
-  },
-);
-
-pteroRoutes.post(
-  "update-roles-permissions/:userId/:pteroId/:roleId",
-  describeRoute({
-    summary: "Set list of permissions to a role",
-    description: `
-  From a list of permissions updates or deletes permissions:
-  
-  - **userId** is from **who is making the request**
-
-  - Adds if there is no permissions to roles.
-  - If there are permissions:
-    1. Add new permissions
-    2. Remove permissions that were disabled
-    `,
-    tags: ["Ptero", "Ptero - Staff - Roles"],
-    requestBody: {
-      content: {
-        "application/json": {
-          schema: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                permissionId: { type: "string", format: "uuid" },
-              },
-              required: ["permissionsId"],
-            },
-          },
-          example: [
-            {
-              permissionId: "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
-            },
-            {
-              permissionId: "d1384f1a-af16-4a40-b55f-08abcab784bb",
-            },
-          ],
-        },
-      },
-      required: true,
-    },
-  }),
-  sValidator("json", PermissionsListSchema),
-  async (c) => {
-    const { userId, pteroId, roleId } = c.req.param();
-    const permissions = c.req.valid("json");
-    const validatedUserId = validateUUID(userId);
-    const validatedPteroId = validateUUID(pteroId);
-    const validatedRoleId = validateUUID(roleId);
-
-    log.info(
-      `Upserting the list of permission to a ptero role: ${JSON.stringify({ permissions, validatedUserId, validatedPteroId, validatedRoleId })}`,
-    );
-
-    await addPermissionsToPteroRole(
-      validatedUserId,
-      validatedPteroId,
-      validatedRoleId,
-      permissions,
-    );
-
-    return c.json("Permissions Updated");
+    return c.json({ ptero_staff_list: staffList });
   },
 );
 
@@ -402,9 +295,24 @@ pteroRoutes.post(
     summary: "Add new staff member",
     description: `
   Adds a new staff member to a ptero staff list
+
+  The path parameters:
+  - userId is who is making the changes
+  - pteroId ...
+
+  The body:
+  - roleId is the new role to be setted
+  - userId is from the person its trying to change
     
+
+  can only be used with this permission:
+  - "id": "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
+  - "permission": "Add Ptero Staff Members"
+  
+
+
     `,
-    tags: ["Ptero", "Ptero - Staff"],
+    tags: ["Ptero", "Ptero - Staff - Management"],
     requestBody: {
       content: {
         "application/json": {
@@ -440,6 +348,11 @@ pteroRoutes.post(
   async (c) => {
     const { userId, pteroId } = c.req.param();
     const { userId: newStaffMemberId, roleId } = c.req.valid("json");
+
+    log
+      .withMetadata({ userId, pteroId, newStaffMemberId, roleId })
+      .info("adding new staff member");
+
     const valdiatedUserId = validateUUID(userId);
     const validatedPteroId = validateUUID(pteroId);
 
@@ -448,12 +361,207 @@ pteroRoutes.post(
       roleId,
     };
 
-    log.info(
-      `Adding new staff member: ${JSON.stringify({ valdiatedUserId, validatedPteroId, payload })}`,
-    );
-
     return c.json(
       await addPteroStaffToRole(valdiatedUserId, validatedPteroId, payload),
+    );
+  },
+);
+
+pteroRoutes.post(
+  "create-role/:userId/:pteroId",
+  describeRoute({
+    summary: "Create a new role for ptero",
+    description: `
+  Creates a new staff role     
+  - *Creates a new role at the bottom of the hiearchy*
+  - **Updating all other roles to + 1 in hierchy**
+  - **Except Owner and Viewers**
+
+  Can be used by staff members with the permission: 
+
+  - "id": "eb344a89-e9a1-474c-b242-a414855719c0",
+  - "permission": "Create New Role" 
+  
+  `,
+    tags: ["Ptero", "Ptero - Staff - Management"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              role: {
+                type: "string",
+                example: "Staff Manager",
+              },
+            },
+            required: ["role"],
+          },
+        },
+      },
+      required: true,
+    },
+    responses: {
+      200: {
+        description: "Role created",
+      },
+      403: {
+        description: "Role already exists",
+      },
+    },
+  }),
+  sValidator("json", CREATE_PteroRoleSchema),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    const { role } = c.req.valid("json");
+    log.withMetadata({ userId, pteroId, role }).info("creating new role");
+
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    await createNewPteroRole(validatedUserId, validatedPteroId, role);
+
+    return c.json({ new_role: role });
+  },
+);
+
+pteroRoutes.post(
+  "update-roles-permissions/:userId/:pteroId/:roleId",
+  describeRoute({
+    summary: "Set list of permissions to a role",
+    description: `
+  From a list of permissions updates or deletes permissions:
+  
+  - **userId** is from **who is making the request**
+
+  - Adds if there is no permissions to roles.
+  - If there are permissions:
+    1. Add new permissions
+    2. Remove permissions that were disabled
+    `,
+    tags: ["Ptero", "Ptero - Staff - Management"],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                permissionId: { type: "string", format: "uuid" },
+              },
+              required: ["permissionsId"],
+            },
+          },
+          example: [
+            {
+              permissionId: "8005995a-7cc0-4afc-b531-c48ff97d6bbb",
+            },
+            {
+              permissionId: "d1384f1a-af16-4a40-b55f-08abcab784bb",
+            },
+          ],
+        },
+      },
+      required: true,
+    },
+  }),
+  sValidator("json", PermissionsListSchema),
+  async (c) => {
+    const { userId, pteroId, roleId } = c.req.param();
+    const permissions = c.req.valid("json");
+    log
+      .withMetadata({ userId, pteroId, roleId, permissions })
+      .info("upserting the list of permissions to a role");
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+    const validatedRoleId = validateUUID(roleId);
+
+    await addPermissionsToPteroRole(
+      validatedUserId,
+      validatedPteroId,
+      validatedRoleId,
+      permissions,
+    );
+
+    return c.json("Permissions Updated");
+  },
+);
+
+pteroRoutes.get(
+  "roles/:userId/:pteroId",
+  describeRoute({
+    summary: "Get the list of roles from a ptero",
+    description: `
+  Returns the list roles of  each pteros:
+  - ***Only works if user is part of the ptero staff table***
+    `,
+    tags: ["Ptero", "Ptero - Staff - Management"],
+    responses: {
+      200: {
+        description: "list of roles",
+      },
+      403: {
+        description: "User is not part of your staff members list",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId, pteroId } = c.req.param();
+    log
+      .withMetadata({ userId, pteroId })
+      .info("getting the list of roles from the ptero");
+    const valdiatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+
+    return c.json(await getPteroRolesList(valdiatedUserId, validatedPteroId));
+  },
+);
+
+pteroRoutes.get(
+  "roles-permissions/:userId/:pteroId/:roleId",
+  describeRoute({
+    summary: "Get the permissions of each role",
+    description: `
+  Returns the permissions of each role from that ptero;  
+  - ***Only works if the user who requested has the update roles permission***  
+  
+  {
+    "id": "2286190c-15f5-48ea-b3f6-414df1ab4ff4",
+    "permission": "Update Roles Permissions"
+  },
+
+    `,
+    tags: ["Ptero", "Ptero - Staff - Management"],
+    responses: {
+      200: {
+        description: "list of permissions or an empty array",
+      },
+      403: {
+        description: "user dont have permissions",
+      },
+      404: {
+        description: "user or ptero not found",
+      },
+      500: {
+        description: "database error",
+      },
+    },
+  }),
+  async (c) => {
+    const { userId, pteroId, roleId } = c.req.param();
+    const validatedUserId = validateUUID(userId);
+    const validatedPteroId = validateUUID(pteroId);
+    const validatedRoleId = validateUUID(roleId);
+
+    log.info("looking for permissions");
+
+    return c.json(
+      await getPteroRolePermissionList(
+        validatedUserId,
+        validatedPteroId,
+        validatedRoleId,
+      ),
     );
   },
 );
@@ -543,35 +651,5 @@ pteroRoutes.post(
 
     await useInviteLink(validatedUserId, inviteLink);
     return c.json("Joined");
-  },
-);
-
-pteroRoutes.get(
-  "roles/:userId/:pteroId",
-  describeRoute({
-    summary: "Get the list of roles from a ptero",
-    description: `
-  Returns the list of pteros:
-  - ***Only works if user is part of the ptero staff table***
-    `,
-    tags: ["Ptero", "Ptero - Roles"],
-    responses: {
-      200: {
-        description: "list of roles",
-      },
-      403: {
-        description: "User is not part of your staff members list",
-      },
-    },
-  }),
-  async (c) => {
-    const { userId, pteroId } = c.req.param();
-    const valdiatedUserId = validateUUID(userId);
-    const validatedPteroId = validateUUID(pteroId);
-
-    log.info(
-      `Getting list of roles from ptero ${validatedPteroId}, requested by: ${valdiatedUserId}`,
-    );
-    return c.json(await getPteroRolesList(valdiatedUserId, validatedPteroId));
   },
 );

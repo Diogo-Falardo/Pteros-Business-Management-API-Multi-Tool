@@ -381,13 +381,11 @@ export class pteroStaffService {
           ),
         );
 
-      log.info(
-        `Updated role: ${roleId} to user: ${userId} in ptero: ${pteroId}`,
-      );
+      log.info("new role set");
     } catch (error) {
       catchError({
         error,
-        logError: `Error updating role: ${roleId} to user: ${userId} in ptero: ${pteroId}`,
+        logError: "error updating role",
         exceptionErrorMessage:
           "Error updating staff member! Please try again later.",
       });
@@ -426,7 +424,9 @@ export class pteroStaffService {
       );
 
       if (!role) {
-        log.error(`Role: ${role} was not found in ptero ${pteroId}`);
+        log
+          .withMetadata({ pteroId, role })
+          .error(`Role was not found in ptero`);
         throw new HTTPException(HttpStatus.NOT_FOUND, {
           message: "Role was not found!",
         });
@@ -437,7 +437,6 @@ export class pteroStaffService {
         role: role.role,
       };
 
-      log.info(`User is a staff member`);
       return pteroStaffInfoSchema.parse(info);
     } catch (error) {
       catchError({
@@ -577,7 +576,6 @@ export class pterosRolesService {
     pteroId: string,
     roleId: string,
   ): Promise<type_PteroRolesSchema | false> {
-    log.info(`Getting role ${roleId} in ptero ${pteroId}`);
     try {
       const role = await db
         .select()
@@ -701,9 +699,9 @@ export class pterosRolesService {
   async createRole(pteroId: string, role: string) {
     const currentRoles = await this.getAllRolesFromPteroId(pteroId);
 
-    for (let role of currentRoles) {
-      if (role.role === role.role) {
-        log.error(`Error role already exists!`);
+    for (let r of currentRoles) {
+      if (r.role === role) {
+        log.withMetadata({ role }).error("role already exists");
         throw new HTTPException(HttpStatus.FORBIDDEN, {
           message: "Error role already exists!",
         });
@@ -717,11 +715,13 @@ export class pterosRolesService {
           role: "viewer",
           hierarchy: 0,
         });
+        log.info("new viewer role was created");
         await db.insert(pterosRolesTable).values({
           pteroId,
           role,
           hierarchy: 2,
         });
+        log.info("first role was inserted");
       } else {
         // updates all the other roles to + 1
         await db
@@ -739,12 +739,13 @@ export class pterosRolesService {
           role,
           hierarchy: 2,
         });
+        log.info("role inserted and other roles updated");
       }
-      log.info(`role created, ${JSON.stringify({ pteroId, role })}`);
+      log.withMetadata({ pteroId, role }).info("new role created");
     } catch (error) {
       catchError({
         error,
-        logError: `Error creating new role: ${role} for ptero: ${pteroId}`,
+        logError: `${JSON.stringify(`Error creating new role: ${role} for ptero: ${pteroId}`)}`,
         exceptionErrorMessage:
           "Error trying to create new role! Please try again later.",
       });
@@ -770,7 +771,7 @@ export class pterosRolesPermissionsService {
       for (let permission of getAllPermissions) {
         await db
           .insert(pterosRolesPermissionsTable)
-          .values({ roleId, permissonId: permission.id });
+          .values({ roleId, permissionId: permission.id });
       }
     } catch (error) {
       catchError({
@@ -801,7 +802,7 @@ export class pterosRolesPermissionsService {
         .where(
           and(
             eq(pterosRolesPermissionsTable.roleId, roleId),
-            eq(pterosRolesPermissionsTable.permissonId, permissionId),
+            eq(pterosRolesPermissionsTable.permissionId, permissionId),
           ),
         )
         .limit(1);
@@ -835,6 +836,8 @@ export class pterosRolesPermissionsService {
 
       if (!roles[0]) return false;
 
+      log.info("current roles");
+
       return pteroRolesPermissionsSchema.array().parse(roles);
     } catch (error) {
       catchError({
@@ -860,10 +863,14 @@ export class pterosRolesPermissionsService {
     listPermissions: Array<type_CREATE_PteroRolesPermissionsList>,
   ) {
     try {
-      if (listPermissions.length === 0)
+      if (listPermissions.length === 0) {
+        log
+          .withMetadata({ listPermissions })
+          .error("no permissions available to set");
         throw new HTTPException(HttpStatus.BAD_REQUEST, {
           message: "0 permissions to set!",
         });
+      }
 
       // if there is no roles add all roles in the list
       const checkIfRoleHasPermissions =
@@ -872,8 +879,13 @@ export class pterosRolesPermissionsService {
         for (const perm of listPermissions) {
           await db
             .insert(pterosRolesPermissionsTable)
-            .values({ roleId, permissonId: perm.permissionId });
+            .values({ roleId, permissionId: perm.permissionId });
         }
+        log
+          .withMetadata({ checkIfRoleHasPermissions })
+          .info(
+            "permissions were empty and now have a full list of permissions",
+          );
       } else {
         const currentSet = new Set(
           checkIfRoleHasPermissions.map((p) => p.permissionId),
@@ -896,7 +908,7 @@ export class pterosRolesPermissionsService {
         for (const perm of toAdd) {
           await db
             .insert(pterosRolesPermissionsTable)
-            .values({ roleId, permissonId: perm.permissionId });
+            .values({ roleId, permissionId: perm.permissionId });
         }
 
         for (const perm of toRemove) {
@@ -905,11 +917,13 @@ export class pterosRolesPermissionsService {
             .where(
               and(
                 eq(pterosRolesPermissionsTable.roleId, roleId),
-                eq(pterosRolesPermissionsTable.permissonId, perm.permissionId),
+                eq(pterosRolesPermissionsTable.permissionId, perm.permissionId),
               ),
             );
         }
       }
+
+      log.info("permissions list updated");
     } catch (error) {
       catchError({
         error,

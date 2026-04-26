@@ -133,3 +133,12 @@ export type type_PATCH_PteroRolesPermissionsList = z.infer<
 export const PermissionsListSchema = z.array(
   z.object({ permissionId: z.uuid() }),
 );
+
+export const pteroRolesExtendedSchema = pteroRolesPermissionsSchema.extend({
+  permission: z.string(),
+  active: z.boolean(),
+});
+
+export type type_PteroRolesExtendedSchema = z.infer<
+  typeof pteroRolesExtendedSchema
+>;

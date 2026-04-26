@@ -21,7 +21,7 @@ export function catchError({
   if (error instanceof HTTPException) {
     throw error;
   }
-  log.error(`${logError}, Error: ${error}`);
+  log.withMetadata({ error }).error(logError);
   throw new HTTPException(exceptionStatus as ContentfulStatusCode, {
     message: exceptionErrorMessage,
     ...extra,

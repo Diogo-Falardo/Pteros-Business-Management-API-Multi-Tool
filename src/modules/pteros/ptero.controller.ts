@@ -14,9 +14,12 @@ import {
   type_CREATE_PteroRolesPermissionsList,
   type_CREATE_PteroSchema,
   type_PATCH_PteroSchema,
+  type_PteroRolesExtendedSchema,
   type_PteroStaffMembersIdSchema,
   type_PteroStaffMembersInfoSchema,
 } from "./ptero.schema";
+import { use_GlobalPermissionsService } from "../../core/admin/admin.services";
+import { globalPermissionsService } from "../../core/admin/admin.service";
 
 /**
  * Create a new ptero
@@ -295,11 +298,9 @@ export const createNewPteroRole = async (
   role: string,
 ) => {
   // permission is
-  //   {
   //   "id": "eb344a89-e9a1-474c-b242-a414855719c0",
-  //   "permission": "Create New Role"
+  //   "permission": "Create New Role"  //   {
   // }
-  log.info(`received ${JSON.stringify({ userId, pteroId, role })}`);
   await validatePtero({
     userId,
     pteroId,
@@ -375,6 +376,9 @@ export const addPteroStaffToRole = async (
   const validateIfUserIsInStaff =
     await use_PteroStaffService.isUserAStaffMember(staff.userId, pteroId);
   if (!validateIfUserIsInStaff) {
+    log
+      .withMetadata({ validateIfUserIsInStaff })
+      .error("user is not a staff member");
     throw new HTTPException(HttpStatus.FORBIDDEN, {
       message: "User is not in you staff list!",
     });
@@ -406,4 +410,82 @@ export const getPteroRolesList = async (userId: string, pteroId: string) => {
   });
 
   return await use_PteroRolesService.getAllRolesFromPteroId(pteroId);
+};
+
+// /**
+//  * Gets all the permissions that are atribuitted to a role:
+//  * - return an empty array if the is no permissions set to it
+//  * @param userId
+//  * @param pteroId
+//  * @param roleId
+//  * @returns [] or list of permissions
+//  */
+export const getPteroRolePermissionList = async (
+  userId: string,
+  pteroId: string,
+  roleId: string,
+) => {
+  // required permission
+  // 2286190c-15f5-48ea-b3f6-414df1ab4ff4
+  // "permission": "Update Roles Permissions"
+
+  await validatePtero({
+    userId,
+    pteroId,
+    checkUserExists: true,
+    checkPteroExists: true,
+    checkUserIsStaff: true,
+    checkUserHasPermission: "2286190c-15f5-48ea-b3f6-414df1ab4ff4",
+  });
+
+  const listOfPermissionsRoles =
+    await use_PteroRolesPermissionsService.checkIfRoleHasPermissions(roleId);
+  if (!listOfPermissionsRoles) {
+    log.withMetadata({ roleId }).info("role has no permissions");
+    return [];
+  } else {
+    // combine list of permission of each role role with
+    // the name of the permission
+    // and all the available permissions
+
+    const listOfPermissionFromARole = await Promise.all(
+      listOfPermissionsRoles.map(async (permission) => {
+        const permissionNameArr =
+          await use_GlobalPermissionsService.getPermissionByPermissionId(
+            permission.permissionId,
+          );
+        const permissionName = Array.isArray(permissionNameArr)
+          ? permissionNameArr[0]
+          : permissionNameArr;
+        if (!permissionName) return null;
+        log
+          .withMetadata({ permissionNameArr, permissionName })
+          .info("permission inside of list of permission roles");
+        return {
+          id: permission.permissionId,
+          permission: permissionName.permission,
+        };
+      }),
+    );
+
+    const globalPermissionList =
+      await use_GlobalPermissionsService.getListOfPermissions();
+
+    const selectedPermissionIds = new Set(
+      listOfPermissionFromARole
+        .filter((p): p is { id: string; permission: string } => p !== null)
+        .map((p) => p.id),
+    );
+
+    const PermissionList = globalPermissionList
+      .filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i)
+      .map((p) => ({
+        id: p.id,
+        permission: p.permission,
+        active: selectedPermissionIds.has(p.id),
+      }));
+
+    log.withMetadata({ PermissionList }).info("permissions list");
+    return PermissionList;
+  }
 };
