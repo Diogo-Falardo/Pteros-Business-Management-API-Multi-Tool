@@ -6,6 +6,13 @@ export const usersTable = pgTable("users", {
   password: varchar({ length: 255 }).notNull(),
 });
 
+export const adminTable = pgTable("admin", {
+  id: uuid().defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+});
+
 export const pterosTable = pgTable("pteros", {
   id: uuid().defaultRandom().primaryKey(),
   userId: uuid("user_id")
@@ -42,7 +49,7 @@ export const pterosRolesPermissionsTable = pgTable("pteros_Roles_Permissions", {
   roleId: uuid("role_id")
     .notNull()
     .references(() => pterosRolesTable.id, { onDelete: "cascade" }),
-  permissonId: uuid("permission_id")
+  permissionId: uuid("permission_id")
     .notNull()
     .references(() => permissionsTable.id),
 });
