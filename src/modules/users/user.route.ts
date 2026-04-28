@@ -17,10 +17,11 @@ export const userRoutes = new Hono().basePath("/user");
 userRoutes.post(
   "create",
   describeRoute({
-    summary: "Create a new user",
+    summary: "Create user",
     description: `Creates a new user
   - Password is encrypted using **argon2** 
 
+  **required** to use the application
     `,
     tags: ["User", "Authentication"],
     requestBody: {
@@ -54,11 +55,10 @@ userRoutes.post(
   sValidator("json", CREATE_UserSchema),
   async (c) => {
     const user = c.req.valid("json");
-    const result = await createUser(user);
 
-    log.info(`Creating user: ${user}`);
-
-    return c.json(result, 201);
+    log.withMetadata({ user: user }).info("Creating user");
+    const create = await createUser(user);
+    return c.json(create, 201);
   },
 );
 
@@ -66,9 +66,13 @@ userRoutes.delete(
   "delete",
   describeRoute({
     summary: "Delete user",
-    description: `- Deletes an user **by the corresponding user id**
+    description: `Deletes an user **by the corresponding user id**
+  
+  - Only admins should be allowed to use this in your software.  
+  ***This never should be a set as a permission***
+
     `,
-    tags: ["User"],
+    tags: ["User", "Admin"],
     requestBody: {
       content: {
         "application/json": {
@@ -109,7 +113,7 @@ userRoutes.post(
   "login",
   describeRoute({
     summary: "Login user",
-    description: `- Logins an User and **returns the user id**`,
+    description: `- Logins an User and **returns the corresponding user id**`,
     tags: ["User", "Authentication"],
     requestBody: {
       content: {
@@ -154,11 +158,11 @@ userRoutes.post(
 userRoutes.get(
   "user-info/:userId",
   describeRoute({
-    summary: "Get user info",
+    summary: "Info user",
     description: `
   - Returns the **email** from an user
     `,
-    tags: ["User", "User - Info"],
+    tags: ["User"],
     responses: {
       200: {
         description: "User email",

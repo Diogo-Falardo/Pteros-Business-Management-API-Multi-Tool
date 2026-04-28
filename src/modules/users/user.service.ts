@@ -20,7 +20,7 @@ export class userService {
         })
         .returning();
 
-      log.info(`User created: ${JSON.stringify({ user })}`);
+      log.withMetadata({ user: user }).info("user created");
       return user;
     } catch (error) {
       catchError({
@@ -35,7 +35,7 @@ export class userService {
     try {
       await db.delete(usersTable).where(eq(usersTable.id, userId));
 
-      log.info(`User deleted: ${JSON.stringify({ userId })}`);
+      log.withMetadata({ userId: userId }).info();
 
       return "User deleted: " + userId;
     } catch (error) {
@@ -102,7 +102,6 @@ export class userService {
 
       if (!user[0]) return false;
 
-      log.info(`User by id got fetched: ${JSON.stringify({ user })}`);
       return user[0];
     } catch (error) {
       catchError({

@@ -438,11 +438,21 @@ export const getPteroRolePermissionList = async (
     checkUserHasPermission: "2286190c-15f5-48ea-b3f6-414df1ab4ff4",
   });
 
+  const globalPermissionList =
+    await use_GlobalPermissionsService.getListOfPermissions();
+
   const listOfPermissionsRoles =
     await use_PteroRolesPermissionsService.checkIfRoleHasPermissions(roleId);
+
   if (!listOfPermissionsRoles) {
     log.withMetadata({ roleId }).info("role has no permissions");
-    return [];
+    return globalPermissionList.map((p) => {
+      return {
+        id: p.id,
+        permission: p.permission,
+        active: false,
+      };
+    });
   } else {
     // combine list of permission of each role role with
     // the name of the permission
@@ -467,9 +477,6 @@ export const getPteroRolePermissionList = async (
         };
       }),
     );
-
-    const globalPermissionList =
-      await use_GlobalPermissionsService.getListOfPermissions();
 
     const selectedPermissionIds = new Set(
       listOfPermissionFromARole
