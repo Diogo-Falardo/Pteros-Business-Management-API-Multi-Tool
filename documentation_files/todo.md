@@ -1,2 +1,0 @@
-- [ ] DO-ACTION: Permission to staff manager
-- [ ] REFACTOR: Users and Ptero returned infos

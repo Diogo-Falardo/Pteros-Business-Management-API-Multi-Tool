@@ -30,7 +30,7 @@ Exports a `catchError` function intended for use at the end of try-catch blocks.
 Parameters:
 
 - `error`: The caught error.
-- `console error`: For logging the error (should be refactored to use the logger).
+- `logError`: For logging the error.
 - `exception status`: Defaults to "500".
 - `exception error message`: Defaults to "Internal Server Error".
 

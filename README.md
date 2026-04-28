@@ -59,3 +59,11 @@ This version introduces three core middlewares for error handling, logging, and 
 - Staff members can create, delete, and update roles and their permissions.
 
 ---
+
+## How to run the project
+
+```
+bun install
+bun run dev
+bun drizzle-kit studio (check db)
+```
